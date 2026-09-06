@@ -41,10 +41,20 @@
   .ambient{font-size:16px; margin:10px 0 4px; min-height:56px; cursor:pointer; text-align:justify}
   .caret{display:inline-block; width:1ch; color:var(--gold); animation:blink 1s steps(1) infinite}
   @keyframes blink{50%{opacity:0}}
-  .log{margin:8px 0 0; font-size:13.5px; color:var(--paper-dim); border-left:2px solid rgba(182,64,46,.45);
-    padding-left:10px; display:flex; flex-direction:column; gap:2px}
-  .log .err{color:#d3705e}
-  .log .good{color:var(--gold)}
+  .log{margin:8px 0 0; font-size:14.5px; color:#c4b391; border-left:2px solid rgba(182,64,46,.45);
+    padding-left:10px; display:flex; flex-direction:column; gap:3px}
+  .log div{opacity:.45; transition:opacity .3s}
+  .log div.latest{opacity:1; color:var(--paper)}
+  .log .err{color:#d3705e !important}
+  .log .good{color:var(--gold) !important; letter-spacing:.5px}
+  .toast-wrap{position:fixed; top:14px; right:14px; z-index:80; display:flex; flex-direction:column;
+    gap:8px; pointer-events:none; max-width:min(320px,78vw)}
+  .toast{background:linear-gradient(180deg,rgba(50,40,27,.97),rgba(32,25,18,.97));
+    border:1px solid rgba(211,188,142,.55); color:var(--gold); font-size:14px; letter-spacing:1px;
+    padding:10px 14px; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,.55), 0 0 16px rgba(211,188,142,.18);
+    animation:toastin .25s ease-out}
+  .toast.fade{opacity:0; transition:opacity .55s}
+  @keyframes toastin{from{opacity:0; transform:translateX(18px)}to{opacity:1; transform:none}}
 
   /* ---------- 分区 ---------- */
   .sec{margin-top:18px}
@@ -848,6 +858,25 @@
   }
 
   /* ---------------- 反馈 / 授予 ---------------- */
+  var ICONS = {
+    lantern: '🏮', tinder: '🔥', rope: '🪢', bucket: '🪣', oil: '🍶', ticket: '🎫',
+    mirror: '🪞', brasskey: '🔑', ledgerpage: '📜', nameplate: '🏷', painting: '🖼',
+    scissors: '✂️', studykey: '🗝', porridge: '🥣', name_strip: '📃',
+    sketch_a: '🎨', sketch_b: '🎨', sketch_c: '🎨'
+  };
+  function itemIcon(id) { return ICONS[id] || '❖'; }
+  function toast(msg) {
+    var wrap = document.querySelector('.toast-wrap');
+    if (!wrap) {
+      wrap = el('div', 'toast-wrap');
+      document.body.appendChild(wrap);
+    }
+    var t = el('div', 'toast', msg);
+    wrap.appendChild(t);
+    while (wrap.children.length > 4) wrap.removeChild(wrap.firstChild);
+    setTimeout(function () { t.classList.add('fade'); }, 2600);
+    setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 3200);
+  }
   function log(msg, cls) {
     S.log.push({ t: msg, c: cls || '' });
     if (S.log.length > 6) S.log = S.log.slice(-6);
@@ -856,6 +885,7 @@
   function addNote(id, t) {
     if (S.notes[id]) return;
     S.notes[id] = { t: t, ch: chapterOf() };
+    toast('📝 笔记：' + t.slice(0, 16) + (t.length > 16 ? '…' : ''));
     checkSynth();
   }
   function checkSynth() {
@@ -871,16 +901,22 @@
     if (!g) return;
     if (g.item && S.items.indexOf(g.item) < 0) {
       S.items.push(g.item);
-      log('获得：' + ITEMS[g.item].n, 'good');
+      log('获得：' + itemIcon(g.item) + ' ' + ITEMS[g.item].n, 'good');
+      toast(itemIcon(g.item) + ' 获得 · ' + ITEMS[g.item].n);
     }
     if (g.items) g.items.forEach(function (i) {
-      if (S.items.indexOf(i) < 0) { S.items.push(i); log('获得：' + ITEMS[i].n, 'good'); }
+      if (S.items.indexOf(i) < 0) {
+        S.items.push(i);
+        log('获得：' + itemIcon(i) + ' ' + ITEMS[i].n, 'good');
+        toast(itemIcon(i) + ' 获得 · ' + ITEMS[i].n);
+      }
     });
     if (g.flag) S.flags[g.flag] = true;
     if (g.note) addNote(g.note.id, g.note.t);
     if (g.lantern && S.lanterns.indexOf(g.lantern.id) < 0) {
       S.lanterns.push(g.lantern.id);
       log('拾得 ' + g.lantern.n + '（' + S.lanterns.length + '/' + META.lanternTotal + '）', 'good');
+      toast('✦ 拾得 ' + g.lantern.n + '（' + S.lanterns.length + '/' + META.lanternTotal + '）');
     }
     checkSynth();
   }
@@ -1251,7 +1287,9 @@
     var lg = document.querySelector('.log');
     if (!lg) return;
     clear(lg);
-    S.log.forEach(function (m) { lg.appendChild(el('div', m.c, m.t)); });
+    S.log.forEach(function (m, idx) {
+      lg.appendChild(el('div', m.c + (idx === S.log.length - 1 ? ' latest' : ''), m.t));
+    });
     lg.scrollTop = lg.scrollHeight;
   }
 
@@ -1427,8 +1465,7 @@
     if (!S.items.length) box.appendChild(el('div', 'empty', '行囊空空。'));
     S.items.forEach(function (id) {
       var row = el('div', 'item-row');
-      row.appendChild(el('div', null, ''));
-      row.innerHTML = '<b>' + ITEMS[id].n + '</b><div class="d">' + ITEMS[id].d + '</div>';
+      row.innerHTML = '<b>' + itemIcon(id) + ' ' + ITEMS[id].n + '</b><div class="d">' + ITEMS[id].d + '</div>';
       box.appendChild(row);
     });
     return box;
