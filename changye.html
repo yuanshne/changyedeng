@@ -1,0 +1,1531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>长夜灯 · 文字解谜</title>
+<style>
+  :root{
+    --ink:#0d0b09; --ink2:#171310; --paper:#e6d8b8; --paper-dim:#9a8c6f;
+    --gold:#d3bc8e; --gold-line:rgba(211,188,142,.28); --red:#b6402e;
+    --panel:rgba(30,24,18,.88); --chipbg:rgba(230,216,184,.06);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0; padding:0}
+  body{
+    background-color:var(--ink);
+    background:radial-gradient(1200px 700px at 50% -10%, #1d1712 0%, var(--ink2) 45%, var(--ink) 100%) fixed;
+    color:var(--paper); font-family:"Noto Serif SC","Songti SC","SimSun",serif;
+    min-height:100vh; line-height:1.75;
+  }
+  #app{max-width:760px; margin:0 auto; padding:14px 16px 48px; position:relative}
+
+  /* ---------- 顶栏 ---------- */
+  .top{display:flex; align-items:center; gap:10px; padding:6px 0 12px; flex-wrap:wrap}
+  .brand{font-size:20px; letter-spacing:6px; color:var(--gold); text-shadow:0 0 12px rgba(211,188,142,.35)}
+  .chip{font-size:13px; color:var(--paper-dim); border:1px solid var(--gold-line); border-radius:999px; padding:2px 10px}
+  .chip.lan{color:var(--gold); border-color:rgba(211,188,142,.5)}
+  .top .sp{flex:1}
+  .tbtn{background:var(--chipbg); border:1px solid var(--gold-line); color:var(--paper);
+    font-family:inherit; font-size:13px; padding:6px 12px; border-radius:8px; cursor:pointer; min-height:34px}
+  .tbtn:hover{border-color:var(--gold); box-shadow:0 0 10px rgba(211,188,142,.25)}
+
+  /* ---------- 场景卡 ---------- */
+  .scene{background:var(--panel); border:1px solid var(--gold-line); border-radius:14px;
+    padding:20px 20px 16px; box-shadow:0 8px 40px rgba(0,0,0,.5); position:relative; overflow:hidden}
+  .scene::before{content:""; position:absolute; inset:8px; border:1px solid rgba(211,188,142,.12);
+    border-radius:10px; pointer-events:none}
+  .s-head{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:6px}
+  .s-name{font-size:22px; letter-spacing:4px; color:var(--gold)}
+  .s-ch{font-size:12px; color:var(--paper-dim); letter-spacing:2px}
+  .ambient{font-size:16px; margin:10px 0 4px; min-height:56px; cursor:pointer; text-align:justify}
+  .caret{display:inline-block; width:1ch; color:var(--gold); animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .log{margin:8px 0 0; font-size:13.5px; color:var(--paper-dim); border-left:2px solid rgba(182,64,46,.45);
+    padding-left:10px; display:flex; flex-direction:column; gap:2px}
+  .log .err{color:#d3705e}
+  .log .good{color:var(--gold)}
+
+  /* ---------- 分区 ---------- */
+  .sec{margin-top:18px}
+  .sec-t{font-size:12.5px; letter-spacing:4px; color:var(--paper-dim); margin-bottom:8px;
+    display:flex; align-items:center; gap:10px}
+  .sec-t::after{content:""; flex:1; height:1px; background:linear-gradient(90deg,var(--gold-line),transparent)}
+
+  .chips{display:grid; grid-template-columns:repeat(auto-fill,minmax(118px,1fr)); gap:8px}
+  .hs{background:var(--chipbg); border:1px dashed rgba(211,188,142,.35); color:var(--paper);
+    font-family:inherit; font-size:14px; padding:9px 8px; border-radius:9px; cursor:pointer; min-height:42px}
+  .hs:hover{border-style:solid; border-color:var(--gold); box-shadow:0 0 8px rgba(211,188,142,.2)}
+  .hs.taken{opacity:.38}
+
+  .exits{display:flex; flex-direction:column; gap:8px}
+  .exit{display:flex; align-items:center; gap:10px; text-align:left; background:rgba(211,188,142,.07);
+    border:1px solid rgba(211,188,142,.4); color:var(--paper); font-family:inherit; font-size:15px;
+    padding:12px 14px; border-radius:10px; cursor:pointer; min-height:46px}
+  .exit::before{content:"➤"; color:var(--gold); font-size:12px}
+  .exit:hover{border-color:var(--gold); box-shadow:0 0 12px rgba(211,188,142,.25)}
+  .exit.locked{opacity:.6; border-style:dashed}
+  .exit.locked::before{content:"⊟"; color:var(--red)}
+  .exit.lock:hover{border-color:var(--red); box-shadow:0 0 10px rgba(182,64,46,.3)}
+
+  /* ---------- 谜题 ---------- */
+  .puzzle{border:1px solid rgba(211,188,142,.35); border-radius:12px; padding:14px; margin-bottom:12px;
+    background:rgba(0,0,0,.22)}
+  .puzzle.intro-dialog{border-color:rgba(182,64,46,.6); box-shadow:0 0 24px rgba(182,64,46,.15)}
+  .pz-prompt{font-size:15px; margin-bottom:12px}
+  .pz-row{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+  input[type=text]{background:rgba(0,0,0,.4); border:1px solid var(--gold-line); color:var(--paper);
+    font-family:inherit; font-size:17px; letter-spacing:6px; padding:9px 12px; border-radius:8px; width:11em}
+  input[type=text]:focus{outline:none; border-color:var(--gold)}
+  .opt,.act{background:var(--chipbg); border:1px solid rgba(211,188,142,.4); color:var(--paper);
+    font-family:inherit; font-size:14.5px; padding:10px 14px; border-radius:9px; cursor:pointer; min-height:42px}
+  .opt:hover,.act:hover{border-color:var(--gold); box-shadow:0 0 8px rgba(211,188,142,.2)}
+  .opt.wrong{opacity:.45; border-color:var(--red)}
+  .hint-row{margin-top:10px; display:flex; align-items:center; gap:8px}
+  .hint-btn{background:none; border:1px dashed rgba(211,188,142,.4); color:var(--paper-dim);
+    font-family:inherit; font-size:12.5px; padding:4px 10px; border-radius:999px; cursor:pointer}
+  .hint-btn:hover{color:var(--gold); border-color:var(--gold)}
+  .hint-text{font-size:13.5px; color:var(--gold)}
+  .shake{animation:shake .35s}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+
+  /* 九钉 */
+  .grid9{display:grid; grid-template-columns:repeat(3,58px); gap:6px; justify-content:center}
+  .pin{width:58px; height:58px; display:flex; align-items:center; justify-content:center;
+    background:rgba(211,188,142,.08); border:1px solid var(--gold-line); border-radius:9px;
+    color:var(--gold); font-size:26px; cursor:pointer; transition:transform .18s}
+  .pin:hover{border-color:var(--gold)}
+  .pin.core{cursor:default; color:#e8b04b; background:rgba(232,176,75,.1); text-shadow:0 0 10px rgba(232,176,75,.8)}
+  .pin .ar{display:inline-block}
+  /* 算盘 */
+  .abacus{display:flex; gap:14px; justify-content:center; padding:10px 0}
+  .rod{display:flex; flex-direction:column; align-items:center; gap:6px}
+  .rod-t{font-size:12px; color:var(--paper-dim)}
+  .bead{width:46px; height:20px; border-radius:10px; background:linear-gradient(180deg,#8a5a33,#5d3a1e);
+    border:1px solid rgba(230,216,184,.35); cursor:pointer}
+  .bead.on{background:linear-gradient(180deg,#d3a04c,#9a6a2a); box-shadow:0 0 8px rgba(211,160,76,.45)}
+  .bead-mid{height:8px}
+  /* 序项 */
+  .seq{display:flex; gap:8px; flex-wrap:wrap; justify-content:center}
+  .seq .opt{min-width:64px; font-size:17px}
+  .seq-done{color:var(--gold); font-size:13px; margin-top:8px; text-align:center; letter-spacing:2px}
+
+  /* ---------- 结局页 ---------- */
+  .ending{max-width:640px; margin:40px auto; text-align:center}
+  .ending .num{letter-spacing:6px; color:var(--paper-dim); font-size:14px}
+  .ending h1{letter-spacing:10px; color:var(--gold); font-weight:500; margin:10px 0 18px; text-shadow:0 0 18px rgba(211,188,142,.4)}
+  .ending .etxt{text-align:justify; font-size:16px; margin:0 0 18px}
+  .ending .stat{font-size:13px; color:var(--paper-dim); margin-bottom:22px}
+
+  /* ---------- 标题页 ---------- */
+  .title-wrap{text-align:center; padding-top:9vh}
+  .lamp{width:74px; height:96px; margin:0 auto 8px; position:relative}
+  .lamp .body{position:absolute; inset:0; border-radius:46% 46% 50% 50%;
+    background:radial-gradient(60% 55% at 50% 42%, rgba(255,190,90,.95), rgba(200,90,30,.75) 60%, rgba(120,40,10,.6));
+    box-shadow:0 0 60px 18px rgba(255,160,60,.25), 0 0 140px 50px rgba(255,120,30,.12); animation:breathe 3.2s ease-in-out infinite}
+  .lamp .cap,.lamp .base{position:absolute; left:50%; transform:translateX(-50%); width:34px; height:9px;
+    background:linear-gradient(180deg,#3a2c1c,#241a10); border-radius:4px}
+  .lamp .cap{top:-2px} .lamp .base{bottom:-2px}
+  @keyframes breathe{0%,100%{filter:brightness(1)}50%{filter:brightness(1.22)}}
+  h1.gtitle{font-size:44px; letter-spacing:18px; color:var(--gold); font-weight:500; margin:6px 0 4px; text-indent:18px}
+  .gsub{color:var(--paper-dim); letter-spacing:4px; font-size:14px; margin-bottom:34px}
+  .mbtn{display:block; width:min(320px,86vw); margin:12px auto; background:var(--chipbg);
+    border:1px solid rgba(211,188,142,.45); color:var(--paper); font-family:inherit; font-size:16px;
+    letter-spacing:6px; padding:13px 10px; border-radius:10px; cursor:pointer}
+  .mbtn:hover{border-color:var(--gold); box-shadow:0 0 14px rgba(211,188,142,.3)}
+  .mbtn.warn{color:#d3705e; border-color:rgba(182,64,46,.55)}
+
+  /* ---------- 弹层 ---------- */
+  .overlay{position:fixed; inset:0; background:rgba(5,4,3,.72); display:flex; align-items:center;
+    justify-content:center; padding:18px; z-index:50}
+  .panel{background:var(--panel); border:1px solid var(--gold-line); border-radius:14px; max-width:560px;
+    width:100%; max-height:82vh; overflow:auto; padding:20px}
+  .panel h2{margin:0 0 14px; font-size:17px; letter-spacing:6px; color:var(--gold); font-weight:500}
+  .panel .close{float:right; background:none; border:none; color:var(--paper-dim); font-size:20px; cursor:pointer}
+  .item-row{border-bottom:1px dashed rgba(211,188,142,.18); padding:9px 2px}
+  .item-row b{color:var(--gold); font-weight:500}
+  .item-row .d{font-size:13.5px; color:var(--paper-dim)}
+  .note-ch{font-size:12px; color:var(--paper-dim); letter-spacing:3px; margin:14px 0 4px}
+  .note-row{font-size:14px; padding:7px 2px; border-bottom:1px dashed rgba(211,188,142,.12)}
+  .note-row.synth{color:var(--gold)}
+  .set-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 2px;
+    border-bottom:1px dashed rgba(211,188,142,.15)}
+  .end-card{border:1px solid var(--gold-line); border-radius:10px; padding:12px 14px; margin-bottom:10px}
+  .end-card.seen{border-color:rgba(211,188,142,.7); box-shadow:0 0 10px rgba(211,188,142,.15)}
+  .end-card b{color:var(--gold); font-weight:500; letter-spacing:3px}
+  .end-card .bl{font-size:13px; color:var(--paper-dim)}
+  .end-card .tag{font-size:12px; color:var(--red)}
+  .empty{color:var(--paper-dim); font-size:14px; text-align:center; padding:20px 0}
+
+  .fade-in{animation:fadein .5s}
+  @keyframes fadein{from{opacity:0; transform:translateY(8px)}to{opacity:1; transform:none}}
+  @media (max-width:480px){
+    #app{padding:10px 10px 40px}
+    .scene{padding:16px 14px 12px}
+    .ambient{font-size:15px}
+    .grid9{grid-template-columns:repeat(3,52px)} .pin{width:52px; height:52px; font-size:22px}
+    h1.gtitle{font-size:34px; letter-spacing:12px}
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script id="game-data" type="application/json">
+{
+  "meta": {
+    "title": "长夜灯",
+    "sub": "灯亮一宿，人保平安",
+    "lanternTotal": 12,
+    "chapters": {
+      "road": "序章 · 夜雨", "temple": "序章 · 夜雨", "stage": "序章 · 夜雨",
+      "hall": "第一幕 · 入宿", "corridor": "第一幕 · 入宿", "guestroom": "第一幕 · 入宿",
+      "room_bing": "第一幕 · 入宿", "study": "第一幕 · 入宿", "counter": "第一幕 · 入宿",
+      "backyard": "第一幕 · 入宿", "kitchen": "第一幕 · 入宿", "woodshed": "第一幕 · 入宿",
+      "attic": "第二幕 · 真相", "cellar": "第二幕 · 真相", "shrine": "第二幕 · 真相",
+      "paper_room": "第二幕 · 真相", "well_bottom": "第二幕 · 真相", "memory": "第二幕 · 真相",
+      "lamproom": "终章 · 子时"
+    }
+  },
+  "items": {
+    "lantern":   { "n": "祖传灯笼", "d": "灯骨乌沉，纸罩泛黄。祖父说：这盏灯认得回家的路。" },
+    "tinder":    { "n": "火折子",   "d": "半截火折子，还带着松脂气。" },
+    "rope":      { "n": "麻绳",     "d": "柴房里一圈浸过桐油的麻绳，结实。" },
+    "bucket":    { "n": "木桶",     "d": "井边的木桶，桶底的榫有些松，但还能用。" },
+    "oil":       { "n": "灯油",     "d": "一壶清亮的灯油。凑近闻，有股说不出的甜腥。" },
+    "ticket":    { "n": "当票",     "d": "半张当票。典当物：一双眼。死当。背面一行小字：赎物者，禁房自取。" },
+    "mirror":    { "n": "铜镜",     "d": "井底捞起的铜镜，冰得不像山里的东西。背面刻着八个字：九钉向心，其匣自开。" },
+    "brasskey":  { "n": "黄铜钥匙", "d": "一把黄铜钥匙，齿口是新磨的。" },
+    "ledgerpage": { "n": "灯谱残页", "d": "正面是半页灯谱；背面密密写着：子丑合，寅亥合，卯戌合……" },
+    "nameplate": { "n": "阿昭名牌", "d": "一块乌木名牌，刻着「阿昭」。字口里的金漆还亮着，像昨天才描的。" },
+    "painting":  { "n": "记忆之画", "d": "白先生的画。画的是这座客栈，画里的门多得数不清。对光看，纸背透出另一幅图。" },
+    "scissors":  { "n": "灯芯剪",   "d": "乌木柄的灯芯剪，剪口有常年燎出的焦痕。" },
+    "studykey":  { "n": "静室铜钥匙", "d": "从走廊灯座里弹出来的，磨得发亮——常用。" },
+    "porridge":  { "n": "一碗热粥", "d": "灶上温着的白粥，还冒着气。粥香得莫名，让人想起家里。" },
+    "name_strip":{ "n": "生名名条", "d": "井底生石上拓下来的名字。不属于灯谱——没有人落过它，也没有人认得它。" },
+    "sketch_a":  { "n": "画稿残页 · 甲", "d": "白先生的画稿。一群人围着灯，人人有脸有衣，唯独没有影子。" },
+    "sketch_b":  { "n": "画稿残页 · 乙", "d": "白先生的画稿。戴斗笠的年轻人蹲下身，把一盏小灯笼递给扎冲天辫的孩童。" },
+    "sketch_c":  { "n": "画稿残页 · 丙", "d": "白先生的画稿。三个人在灯谱上按了手印，笑着，像在立什么誓。" }
+  },
+  "puzzles": {
+    "counter_lock": {
+      "type": "code",
+      "prompt": "柜房门上一把四位铜环锁，锁旁刻着一行小字：匾上有数。",
+      "accept": ["6346"],
+      "hints": [
+        "大堂匾额与山道石碑刻的是同样四个字。「匾上有数」——数的是笔画。",
+        "灯（6画）、下（3画）、不（4画）、问（6画）。"
+      ],
+      "wrongFb": "转轮拨了一圈，锁体纹丝不动。",
+      "success": "转轮咔哒归位。柜房的门无声地开了一道缝。",
+      "onSolve": {}
+    },
+    "sign_name": {
+      "type": "choice",
+      "intro": true,
+      "prompt": "乌老板隔着柜台抬起眼，斗笠的影子刚好停在鼻梁上：「客官，落个名。灯亮一宿，人保平安。」\n你要在灯谱上如何落笔？",
+      "options": [
+        { "t": "落下真名", "flag": "name_true",
+          "fb": "你写下「沈砚」二字。墨迹落进纸纹，像一滴水渗进沙。写完那一瞬，你莫名觉得指尖凉了一下。",
+          "note": { "id": "n_name", "t": "我在灯谱上落了真名。落笔之后，指尖凉了很久。" } },
+        { "t": "落个假名——「白先生」", "flag": "name_false",
+          "fb": "你落了「白先生」三个字——那是你在柜后灯谱最后一页瞥见的名姓。落笔时，斗笠的影子极轻地晃了一下。",
+          "note": { "id": "n_name", "t": "我落了假名：白先生。那是灯谱最后一页墨迹未干的名字。" } },
+        { "t": "再说吧", "flag": "name_defer",
+          "fb": "乌老板不再勉强，只拨了拨灯芯：「也好。夜里，灯别灭。」",
+          "note": { "id": "n_name", "t": "我推说再想想，没有落名。乌老板说：夜里，灯别灭。" } }
+      ],
+      "hints": [],
+      "success": ""
+    },
+    "confront": {
+      "type": "choice",
+      "showIf": { "flags": ["knows_diary"] },
+      "prompt": "你把账本上的疑点摊上柜台。乌老板的斗笠纹丝不动。\n哪一句，是他露的馅？",
+      "options": [
+        { "t": "「您说过——灯谱落名，天亮即还。」", "correct": true,
+          "fb": "斗笠底下静了很久。「……是还的。还成你想要的样子。」他从柜下摸出一枚乌黑的请柬，推过来：「子时，灯房。」",
+          "give": { "flag": "summons_zishi", "note": { "id": "n_summons", "t": "乌老板的请柬：子时，灯房。是他在等我，还是灯在等我？" } } },
+        { "t": "「灯下不问来路。」", "fb": "乌老板低低笑了一声：「那是山里的规矩，不是我说的话。」" },
+        { "t": "「没有灯，走不得夜路。」", "fb": "「这句也对。」斗笠纹丝不动。「可惜，不是破绽。」" }
+      ],
+      "hints": [
+        "想一想：哪句话与你在地窖读到的东西正好相反？",
+        "他在堂前说过「灯谱落名，天亮即还」——可日记里写的正好相反。"
+      ],
+      "success": ""
+    },
+    "abacus": {
+      "type": "abacus",
+      "prompt": "暗格悬在算盘之后。墙上残联提醒你：欠账，总得还。把两张欠条的数目，一并还上。",
+      "target": 408,
+      "hints": [
+        "账本夹着两张欠条：一张二百七十文，一张一百三十八文。",
+        "两数相加是四百零八。上珠一颗是五，下珠一颗是一；百、十、个三档。"
+      ],
+      "success": "算珠归位的一瞬，桌沿「咔」地弹开一道暗格，里头躺着一页残纸。",
+      "onSolve": { "item": "ledgerpage" }
+    },
+    "nine_box": {
+      "type": "rotate",
+      "prompt": "供桌上一只铜匣，匣面九宫嵌着铜钉，钉尾铸着箭头。正中一枚是灯心，嵌死了。",
+      "targets": [3, 2, 1, 4, null, 0, 5, 6, 7],
+      "hints": [
+        "铜镜背面刻着八个字：九钉向心，其匣自开。",
+        "八枚钉，每一枚的箭头都要指向正中的灯心。点一下，钉子转半格。"
+      ],
+      "success": "八枚铜钉同时轻轻一跳，像认了主。匣盖弹开，一股凉气扑出来。",
+      "onSolve": { "item": "brasskey" }
+    },
+    "well_pull": {
+      "type": "use",
+      "prompt": "井里似乎沉着什么。",
+      "btn": "把桶用绳放下去",
+      "requires": { "items": ["rope", "bucket"] },
+      "fail": "井太深，空手捞不着。得有一根结实的绳、一只桶。",
+      "hints": ["柴房里有绳，井边有桶。"],
+      "success": "桶上来时，水里浮着一面铜镜，冰得不像山里的东西。桶底还缠着半截纸糊的手臂，指节画得极细。",
+      "onSolve": { "item": "mirror", "note": { "id": "n_arm", "t": "井底捞起：铜镜一面（冰得反常，背面刻「九钉向心，其匣自开」）；纸人手臂半截（指节画得极细，像「阿九」的手）。" } }
+    },
+    "floor_door": {
+      "type": "use",
+      "prompt": "柴房的地板，有一块的颜色格外深。",
+      "btn": "泼上灯油，举灯照看",
+      "requires": { "items": ["oil"], "flags": ["lit_lantern"] },
+      "fail": "板缝黑着。你需要能照见它的东西——灯油，和火。",
+      "hints": ["灯油泼进板缝，火光才照得进去——两样你都见过：柴房架上，还有你怀里。"],
+      "success": "灯油渗进板缝，火光一舔，板下露出向下的石阶。凉气涌上来，带着灯油熬过的甜腥。",
+      "onSolve": { "flag": "cellar_found" }
+    },
+    "box": {
+      "type": "use",
+      "prompt": "画箱上贴着黄泥封条，抬头两个字：死当。",
+      "btn": "拿当票对封条",
+      "requires": { "items": ["ticket"] },
+      "fail": "封条骑了缝，硬揭只会毁掉里面的东西。得有凭证。",
+      "hints": ["「死当」的封条要凭票开启——当票上写着：赎物者，禁房自取。后院井沿石缝里压着半张。"],
+      "success": "封条上的骑缝章与当票严丝合缝。黄泥簌簌剥落，箱开了。",
+      "onSolve": {
+        "items": ["painting", "scissors"],
+        "note": { "id": "n_back", "t": "画对光看，纸背透出另一幅图：一座石门，嵌八枚卦符，旁题十六字——乾坤初开，坎离继明，震巽司晨，艮兑守夜。" }
+      }
+    },
+    "jar_hex": {
+      "type": "order",
+      "prompt": "坛阵正中空出一方，六只小坛可以搬动，坛身各刻一支地支。残页背面说：合，则启。",
+      "items": ["寅", "子", "戌", "丑", "亥", "卯"],
+      "groups": [["子", "丑"], ["寅", "亥"], ["卯", "戌"]],
+      "hints": [
+        "灯谱残页背面写着：子丑合，寅亥合，卯戌合。",
+        "先动「子」与「丑」那一对，再「寅」与「亥」，最后「卯」与「戌」。对内先后随意。"
+      ],
+      "wrongFb": "封泥嗡地一响，六坛各自滚回原位。",
+      "success": "六坛归位，封泥同碎。坛里没有酒——是名字，一缕缕细如金线，从坛口飘出来钻进墙缝。正中那只坛里，躺着一块乌木名牌。",
+      "onSolve": { "item": "nameplate" }
+    },
+    "gate_bagua": {
+      "type": "order",
+      "prompt": "石门上嵌着八枚卦符。画背面透出的口诀，就是开门的次序。",
+      "items": ["坎", "震", "乾", "兑", "巽", "坤", "艮", "离"],
+      "seq": ["乾", "坤", "坎", "离", "震", "巽", "艮", "兑"],
+      "hints": [
+        "把记忆之画对着灯照——纸背透出十六字口诀。",
+        "乾坤初开，坎离继明，震巽司晨，艮兑守夜。两字一步，共四步。"
+      ],
+      "wrongFb": "卦符弹回原位，石门里传来一声几不可闻的叹息。",
+      "success": "卦符依次沉入石门。门后没有风，只有灯火熬了一百年、微微发甜的暖。",
+      "onSolve": {}
+    },
+    "corridor_lamps": {
+      "type": "order",
+      "prompt": "走廊上三盏灯，灯罩各描着一个字：眠、安、静。积尘的灯座开关，该按什么次序拨亮？",
+      "items": ["眠", "安", "静"],
+      "seq": ["安", "静", "眠"],
+      "hints": [
+        "墙上刻字与更牌说的是同一件事：客安，灯静，人眠。",
+        "按更牌的次序拨：一更「安」，二更「静」，三更「眠」。"
+      ],
+      "wrongFb": "三盏灯同时灭了，走廊黑得像一口井。",
+      "success": "三盏灯次第亮起。走廊尽头，静室的门锁「咔」地自己弹开了。",
+      "onSolve": { "item": "studykey" }
+    },
+    "kitchen_stoves": {
+      "type": "order",
+      "prompt": "四口灶冷着。灶王楹联说，一日四食，各有时辰。",
+      "items": ["茶", "酒", "面", "粥"],
+      "seq": ["粥", "面", "酒", "茶"],
+      "hints": [
+        "灶王楹联写着：晨烹粥，午擀面，暮温酒，夜留茶。",
+        "按时辰先后点：粥、面、酒、茶。"
+      ],
+      "wrongFb": "灶膛里的火苗齐齐瘪了下去，像被谁吹熄的。",
+      "success": "四灶次第生火，笼屉冒出热气——灶台上不知何时多了一碗热粥。",
+      "onSolve": { "item": "porridge" }
+    },
+    "paper_face": {
+      "type": "order",
+      "prompt": "一张白纸人躺在案上，五官摊在一旁没贴。相书说，开脸有次序。",
+      "items": ["唇", "鼻", "睛", "眉"],
+      "seq": ["睛", "眉", "鼻", "唇"],
+      "hints": [
+        "案上相书写着：开脸之序，一点睛，二描眉，三塑鼻，四点唇。",
+        "先眼睛，再眉毛，然后鼻子，最后嘴唇。"
+      ],
+      "wrongFb": "五官贴了又落，纸人躺着，像在无声地摇头。",
+      "success": "五官归位。纸人睁了睁眼——它没有动，你却确定它看见了你们俩。",
+      "onSolve": { "note": { "id": "n_paperman", "t": "我把开过脸的纸人揣进怀里。走夜路时，它一直面朝身后。" } }
+    },
+    "mem_drum": {
+      "type": "order",
+      "prompt": "阿昭的记忆是一段打乱的更鼓，四声锣点散在半空。",
+      "items": ["一声收", "三声紧", "两声慢", "一声长"],
+      "seq": ["两声慢", "三声紧", "一声长", "一声收"],
+      "hints": [
+        "阿昭的残影还在一遍遍念：头更两声慢，二更三声紧，三更一声长，五更一声收。",
+        "两慢、三紧、一长、一收。"
+      ],
+      "wrongFb": "锣点乱了，残影疼得缩成一团。",
+      "success": "更鼓声归位。阿昭的残影直起腰来，朝你深深作了个揖。",
+      "onSolve": { "flag": "ajun_memory", "note": { "id": "n_mem_ajun", "t": "阿昭的记忆：他小时候最爱听爹打更。头更两声慢，二更三声紧，三更一声长，五更一声收。" } }
+    },
+    "mem_paint": {
+      "type": "choice",
+      "showIf": {},
+      "prompt": "白先生的记忆停在一幅没画完的画前。画上的人有动作、有衣褶、有神情——唯独少了一样东西。\n补上哪一笔，记忆才肯继续？",
+      "options": [
+        { "t": "一道影子", "correct": true,
+          "fb": "笔锋落处，影子从画里每个人脚下漫出来。白先生的残影笑了，把最后一页画稿塞进你手里。",
+          "give": { "items": ["sketch_a"] } },
+        { "t": "一只左手", "fb": "白先生的残影摇了摇头。左手早就画了，在袖子里。" },
+        { "t": "一柄油纸伞", "fb": "白先生的残影摇了摇头。伞在门口立着呢。" },
+        { "t": "半张脸", "fb": "白先生的残影往后缩了缩——他不想再少一样东西了。" }
+      ],
+      "hints": [
+        "禁房的速写墙藏着你见过的一句怪处。",
+        "画上的人什么都有——就是没有影子。"
+      ],
+      "success": ""
+    },
+    "mem_keeper": {
+      "type": "choice",
+      "showIf": {},
+      "prompt": "乌老板的记忆是一口枯井。井底只有一个问题：\n灯什么都吃，为什么偏偏不吃守灯人的名字？",
+      "options": [
+        { "t": "名字早喂回了灯里", "correct": true,
+          "fb": "枯井底亮起一星火。名字不在牌位上——名字早就成了灯芯。乌老板的残影抬手，把一页画稿递给你。",
+          "give": { "flag": "wu_memory", "note": { "id": "n_mem_wu", "t": "乌老板的记忆：守灯人的名字不在牌位上，在灯里——名字就是灯芯。他喂掉脸之前，先喂掉了名字。" } } },
+        { "t": "名字被虫蛀了", "fb": "枯井里静了一瞬。虫蛀得掉纸，蛀不掉灯记了三百年的账。" },
+        { "t": "他根本没有名字", "fb": "不对。灯谱第一页的第一个名字，就是守灯人自己写上去的。" }
+      ],
+      "hints": [
+        "祠堂里的牌位都没有字——为什么？",
+        "祠堂的新牌位背后没有名字。名字不在牌位上，在别处。"
+      ],
+      "success": ""
+    },
+    "bing_box": {
+      "type": "code",
+      "prompt": "丙房的信匣没有锁，只嵌着一块能按动的字板，缺四个字。",
+      "accept": ["山高月小"],
+      "hints": [
+        "三封信里，同一句暗号出现了三遍。",
+        "山高月小，水落石出——只要前四个字。"
+      ],
+      "wrongFb": "字板纹丝不动，匣子里传出纸页翻动的轻响。",
+      "success": "字板沉下去，匣底滑出一页画稿，墨还新。",
+      "onSolve": { "items": ["sketch_c"] }
+    },
+    "opera_pick": {
+      "type": "choice",
+      "showIf": {},
+      "prompt": "荒戏台蒙尘的锣鼓忽然自己轻响了一声，像在催你点戏。\n台柱刻着规矩：酬神，点一折。",
+      "options": [
+        { "t": "《夜奔》", "fb": "锣鼓闷闷地哑了一声。台柱上的「不点刀兵」四个字红得扎眼。" },
+        { "t": "《目连救母》", "correct": true,
+          "fb": "锣鼓自己敲了一阵过门，唱腔却没响——只有台底的灯花亮了亮，像一声喝彩。",
+          "give": { "lantern": { "id": "lf_stage", "n": "灯花 · 戏箱" }, "note": { "id": "n_opera", "t": "戏文残页：一盏灯，照山岗；借君名，熬更长。名入谱，肉入坛；灯下客，莫还乡。" } } },
+        { "t": "《浣纱记 · 别越》", "fb": "锣鼓哑了。台柱刻着「灯前无别」——不点离歌。" }
+      ],
+      "hints": [
+        "台柱的两行刻字就是戏单的筛子：不点刀兵，不点离歌。",
+        "三折里只剩一折是孝戏——酬神，点孝戏。"
+      ],
+      "success": ""
+    },
+    "study_box": {
+      "type": "code",
+      "prompt": "静室的木匣没有锁孔，匣盖刻着四个小字：吾儿乳名。",
+      "accept": ["昭", "阿昭"],
+      "hints": [
+        "案上的家书还没写完，抬头两个字被墨点洇开，又被人描过很多遍。",
+        "家书抬头：昭儿。"
+      ],
+      "wrongFb": "匣盖咬得很紧。它只认一个名字。",
+      "success": "匣盖弹开。半页画稿，和一封没有寄出去的信。",
+      "onSolve": { "items": ["sketch_b"], "note": { "id": "n_letter_wu", "t": "未寄的家书：「昭儿：灯谱的事，爹对不住你。等你名字还回来那天，爹把斗笠留给你。——爹」信纸边角磨得起了毛，像被摩挲了三十年。" } }
+    }
+  },
+  "scenes": [
+    {
+      "id": "road", "name": "山道",
+      "ambient": "雨下了一整天。入夜的山道泥泞没踝，四野漆黑，只有山坳深处一点昏黄的光，像一只不肯闭上的眼睛。",
+      "hotspots": [
+        { "id": "bundle", "label": "随身的包袱", "text": "你翻出祖父留下的那盏旧灯笼。灯骨乌沉，纸罩泛黄——祖父说过，这盏灯认得回家的路。", "give": { "item": "lantern" } },
+        { "id": "stele", "label": "路边的石碑", "text": "你抹去碑上的泥浆。碑上刻着：灯下不问来路。字口很新，像常有人来描金。", "give": { "note": { "id": "n_stele", "t": "山道石碑：灯下不问来路。字口很新，像常有人描金。" } } },
+        { "id": "stele_base", "label": "石碑底座", "text": "底座与碑身之间豁了一道缝，里头嵌着一粒米大的灯花，是温的。", "give": { "lantern": { "id": "lf_road", "n": "灯花 · 山路" } } },
+        { "id": "mud", "label": "脚下的泥泞", "text": "泥里没有脚印。上山这么久——这条路今晚，好像只有你一个人在走。" },
+        { "id": "wind", "label": "山风", "text": "风从半山上来，裹着一点极轻的锣鼓声。你侧耳再听，又只剩雨。" , "give": { "note": { "id": "n_wind", "t": "山风里有极轻的锣鼓声——半山似乎有一座荒了的戏台。" } } }
+      ],
+      "puzzles": [],
+      "exits": [
+        { "to": "temple", "label": "去破庙避雨", "requires": {} },
+        { "to": "stage", "label": "循锣鼓声上半山", "requires": {} }
+      ]
+    },
+    {
+      "id": "stage", "name": "荒戏台",
+      "ambient": "半山果然有一座戏台，塌了半边顶。蒙尘的锣鼓架、半开的戏箱、立在台柱上的唱本——一切都旧了，唯独台板干净得反常，像昨夜刚有人扫过。",
+      "hotspots": [
+        { "id": "pillar_rule", "label": "台柱刻字", "text": "两根台柱各刻一行字，笔画里填着朱砂：山神好静——不点刀兵。灯前无别——不点离歌。", "give": { "note": { "id": "n_pillar", "t": "戏台台柱：山神好静，不点刀兵；灯前无别，不点离歌。酬神点孝戏。" } } },
+        { "id": "stage_box", "label": "戏箱", "text": "戏箱半开着，戏服叠得整整齐齐。你翻起一件戏服的领口——里面密密缝着一个小小的名字。每一件都缝着，名字都不一样，都是给灯看的那种端正小楷。", "give": { "note": { "id": "n_stage_box", "t": "戏服领口都缝着一个小名字，端正小楷——缝给灯看的名字。" } } },
+        { "id": "libretto", "label": "唱本", "text": "唱本摊开在《目连救母》那一折，折角处密密麻麻全是指痕——有人翻来覆去只看这一出。页边一行小字：娘在灯里，我去救。", "give": { "note": { "id": "n_libretto", "t": "戏台唱本只翻烂了《目连救母》一折，页边写着：娘在灯里，我去救。" } } }
+      ],
+      "puzzles": [ { "id": "opera_pick" } ],
+      "exits": [ { "to": "road", "label": "回山道", "requires": {} } ]
+    },
+    {
+      "id": "temple", "name": "破庙",
+      "ambient": "破庙没有门板，神像塌了半边脸。像前一盏长明灯只剩豆大的火，庙里的一切都泡在将熄未熄的昏黄里。",
+      "hotspots": [
+        { "id": "altar", "label": "供桌", "text": "供桌空着，只压着一张黄纸，字迹被雨气洇开：借火者，留名。", "give": { "note": { "id": "n_qian", "t": "破庙签文：借火者，留名。" } } },
+        { "id": "under_altar", "label": "供桌底下", "text": "桌板底下摸出半截火折子，还带着松脂气。", "give": { "item": "tinder" } },
+        { "id": "sticktube", "label": "签筒", "text": "签筒里插满竹签。筒底压着一粒米大的灯花，不知是哪位过客留下的念想。", "give": { "lantern": { "id": "lf_temple", "n": "灯花 · 签筒" } } },
+        { "id": "statue", "label": "半边脸的神像", "text": "神像剩下的半边脸在笑，又不完全是笑。你忽然想起碑上那句话——灯下不问来路。" },
+        { "id": "merit_box", "label": "功德箱", "text": "箱里没有铜钱，只有几十枚纸剪的钱，剪得极细致——是纸扎间的手艺。", "give": { "note": { "id": "n_merit", "t": "破庙功德箱里塞满纸剪的铜钱。给神明的钱也用纸的——这座山上的规矩，处处透着纸的味道。" } } }
+      ],
+      "puzzles": [ { "id": "light_lamp" } ],
+      "exits": [
+        { "to": "road", "label": "回山道", "requires": {} },
+        { "to": "hall", "label": "循着那点昏黄下山", "requires": { "flags": ["lit_lantern"] }, "failText": "山黑得吃人。没有灯，你不敢走夜路。" }
+      ]
+    },
+    {
+      "id": "hall", "name": "大堂",
+      "ambient": "客栈大堂比外面暖得多。四盏白灯笼从梁上垂下来，光却不怎么动，像被钉在了半空。柜后坐着个戴斗笠的人，斗笠的影子刚好盖住整张脸。",
+      "hotspots": [
+        { "id": "plaque", "label": "头顶的匾额", "text": "匾上四个大字：灯下不问。金漆很新，新得反常。", "give": { "note": { "id": "n_plaque", "t": "大堂匾额：灯下不问。金漆很新——像常有失了记忆的人回来描过。" } } },
+        { "id": "plaque_back", "label": "匾额后面", "text": "你踮脚摸到匾后。经年的尘埃里，粘着一粒灯花。", "give": { "lantern": { "id": "lf_hall", "n": "灯花 · 匾后" } } },
+        { "id": "lampbook", "label": "柜后的灯谱", "text": "你趁乌老板拨灯芯，翻开那本厚册子。满页名字，墨色深深浅浅；最后一页「白先生」三个字，墨迹未干，纸角卷着，像被水溅过。", "give": { "note": { "id": "n_lampbook", "t": "灯谱：满页名字。末页「白先生」墨迹未干，纸角像被水溅过。" } } },
+        { "id": "whitelanterns", "label": "白灯笼", "text": "灯罩里没有风，四盏灯的火苗却齐齐偏向同一个方向——后院的方向。" },
+        { "id": "ahjiu", "label": "角落里的伙计", "text": "阿九蹲在角落擦一只碗，擦得极慢、极认真——那只碗永远是湿的。你朝他点头，他没抬头；你走了三步，又觉得他其实一直在看你。", "give": { "note": { "id": "n_ahjiu", "t": "伙计阿九是个哑巴，眼神空空的。他擦碗的手法很怪——不是伙计的手法，是更夫的手法，一下一下，像打更。" } } },
+        { "id": "watch_board", "label": "梁上的更牌", "text": "梁下挂着三面小木牌，按次序写着：一更「安」，二更「静」，三更「眠」。牌子磨得发亮，被人常年取用。", "give": { "note": { "id": "n_watch", "t": "大堂更牌：一更「安」，二更「静」，三更「眠」。" } } },
+        { "id": "give_porridge", "label": "把热粥递给阿九", "requires": { "items": ["porridge"] }, "text": "你把热粥塞进阿九手里。他愣了很久，忽然抬头看你——眼睛还是空的，可里面有什么东西晃了一下，像风里的灯。他打了个手势：先指你，再指楼上，又指了指自己的心口。", "give": { "flag": "ajun_fed", "note": { "id": "n_ajun_fed", "t": "阿九喝了粥，指了指我，指了指楼上，又指了指自己的心口。他没有记忆，可他记得怎么谢人。" } } }
+      ],
+      "puzzles": [ { "id": "sign_name" }, { "id": "confront", "showIf": { "flags": ["knows_diary"] } } ],
+      "exits": [
+        { "to": "corridor", "label": "上二楼", "requires": {} },
+        { "to": "counter", "label": "进柜房", "requires": { "solved": ["counter_lock"] }, "failText": "柜房的门上一把四位铜环锁，锁旁刻着小字：匾上有数。", "lockPuzzle": "counter_lock" },
+        { "to": "backyard", "label": "推门去后院", "requires": {} }
+      ]
+    },
+    {
+      "id": "corridor", "name": "二楼走廊",
+      "ambient": "二楼走廊又窄又长，三盏灯照着三扇门。木地板每一块都响，响声却很有节奏——你听了两遍才明白，那是更点的板眼。",
+      "hotspots": [
+        { "id": "corr_carve", "label": "墙上的刻字", "text": "墙皮斑驳处刻着一行小字，笔画被人摸得发亮：客安，灯静，人眠。", "give": { "note": { "id": "n_corr_carve", "t": "走廊刻字：客安，灯静，人眠。" } } },
+        { "id": "corr_doors", "label": "三扇门", "text": "一扇虚掩（客房），一扇上着铜锁（尽头静室），一扇门牌写着「丙」。禁房的楼梯口在走廊另一头，黑得像一口井。" },
+        { "id": "lamp_top", "label": "灯罩顶上", "text": "你踮脚往灯罩顶上一摸——积尘里粘着一粒灯花，还带着更点的余温。", "give": { "lantern": { "id": "lf_corridor", "n": "灯花 · 更点" } } }
+      ],
+      "puzzles": [ { "id": "corridor_lamps" } ],
+      "exits": [
+        { "to": "hall", "label": "下楼回大堂", "requires": {} },
+        { "to": "guestroom", "label": "推门进客房", "requires": { "any": [ { "flags": ["name_true"] }, { "flags": ["name_false"] } ] }, "failText": "门把手转不动。楼下传来乌老板慢悠悠的声音：「落了名的客官，才好安歇。」" },
+        { "to": "room_bing", "label": "推开丙房", "requires": {} },
+        { "to": "study", "label": "进尽头的静室", "requires": { "items": ["studykey"] }, "failText": "静室的门锁着。锁眼擦得干净——有人天天来开这扇门。" },
+        { "to": "attic", "label": "上楼 · 禁房", "requires": { "items": ["brasskey"] }, "failText": "禁房的楼梯口横着一道铜锁，纹丝不动。锁眼上了新油——常用。" }
+      ]
+    },
+    {
+      "id": "room_bing", "name": "丙房",
+      "ambient": "丙房收拾得干干净净，床铺平平整整——整洁得反常，像在等一个永远不会回来的人。",
+      "hotspots": [
+        { "id": "bing_bed", "label": "床下的行李", "text": "床下塞着一只捆好的包袱，最上面是一件叠得整整齐齐的长衫，袖口磨破了又补上。行李没人来取——住客也没人再提起。", "give": { "note": { "id": "n_bing_bag", "t": "丙房床下有客人的行李，叠好的长衫补了又补。他不是退了房——他是没能走。" } } },
+        { "id": "bing_letters", "label": "桌上的三封信", "text": "三封信，同一人手笔：头封写「入山」，二封写「宿夜」，末封只写了「未」字。信里反复念着一句暗号：山高月小，水落石出。", "give": { "note": { "id": "n_letters", "t": "丙房三封信（入山/宿夜/未完）。暗号出现三遍：山高月小，水落石出。" } } },
+        { "id": "bing_lamp", "label": "灯座暗格", "text": "桌上的灯座轻得反常。你托起灯座，座底有一格浅槽，一粒灯花躺在里面。", "give": { "lantern": { "id": "lf_bing", "n": "灯花 · 灯座" } } }
+      ],
+      "puzzles": [ { "id": "bing_box" } ],
+      "exits": [ { "to": "corridor", "label": "回走廊", "requires": {} } ]
+    },
+    {
+      "id": "study", "name": "静室",
+      "ambient": "静室很小，只有一案、一架、一盏灯。案上纸笔俱全，纸面却没有一个字——每一张都写了一半，又被一笔一笔描掉了。",
+      "hotspots": [
+        { "id": "hat_rack", "label": "斗笠架", "text": "木架上挂着一排斗笠，一共七顶，大小如一。你翻过檐沿——每顶里侧都用指甲刻着一个名字，一个比一个旧。最新的一顶上刻着两个字：乌氏。", "give": { "note": { "id": "n_hats", "t": "静室七顶斗笠，檐内各刻一个名字——七代守灯人。最新一顶刻着「乌氏」。" } } },
+        { "id": "half_letter", "label": "案上的家书", "text": "一封信写了一半：「昭儿：山里夜寒，爹给你缝了……」字到一半断了，墨点洇开又被描过——描了很多遍，像有人写不下去，又舍不得放下。", "give": { "note": { "id": "n_half_letter", "t": "静室家书写了一半：「昭儿：山里夜寒，爹给你缝了……」" } } }
+      ],
+      "puzzles": [ { "id": "study_box" } ],
+      "exits": [ { "to": "corridor", "label": "回走廊", "requires": {} } ]
+    },
+    {
+      "id": "guestroom", "name": "客房",
+      "ambient": "客房不大，一床、一凳、一窗。雨声小了，后院井的方向有一点光。",
+      "hotspots": [
+        { "id": "pillow", "label": "枕头底下", "text": "半张纸，字迹清瘦：「别信还名之说。灯还回来的，不是你的东西。——白」", "give": { "note": { "id": "n_bai", "t": "枕下字条（白先生字迹）：别信还名之说。灯还回来的，不是你的东西。" } } },
+        { "id": "window", "label": "窗外", "text": "井台上像坐着一个人影。你看第二眼时，那里只有辘轳和绳子。" },
+        { "id": "fu_charm", "label": "门后的平安符", "text": "门背后钉着一枚平安符，符纸发黄，朱砂写的名字被指甲抠去了一半——抠的人不想让灯看见自己的名字。", "give": { "note": { "id": "n_fu", "t": "客房门后的平安符，朱砂名字被抠掉一半——有人不想让灯看见自己的名字。" } } }
+      ],
+      "puzzles": [],
+      "exits": [ { "to": "corridor", "label": "回走廊", "requires": {} } ]
+    },
+    {
+      "id": "counter", "name": "柜房",
+      "ambient": "柜房比大堂暗。一桌、一柜、一算盘。账本压在柜角，墙上挂着一杆老秤。",
+      "hotspots": [
+        { "id": "ledger", "label": "账本", "text": "账本记的全是「灯油」：某年某月某客，收灯油几斤几两。夹页里掉出两张欠条——一张二百七十文，一张一百三十八文。最末一行小字：本店灯谱，自光绪廿四年起，共落名三百六十一人。", "give": { "note": { "id": "n_ledger", "t": "账本：记的全是灯油。两张欠条——二百七十文、一百三十八文。灯谱自光绪廿四年起共落名三百六十一人。" } } },
+        { "id": "ledger_cover", "label": "账本封皮", "text": "封皮夹层里滑出一粒灯花，落在算盘上，叮的一声。", "give": { "lantern": { "id": "lf_counter", "n": "灯花 · 账中" } } },
+        { "id": "scale", "label": "老秤", "text": "秤杆磨得发亮。秤砣上铸着一个字：名。" },
+        { "id": "wall_note", "label": "墙上的字", "text": "墙上贴着一张残联，只剩四个字：欠账总得还。", "give": { "note": { "id": "n_wall", "t": "柜房墙上残联：欠账总得还。" } } }
+      ],
+      "puzzles": [ { "id": "abacus" }, { "id": "nine_box" } ],
+      "exits": [ { "to": "hall", "label": "回大堂", "requires": {} } ]
+    },
+    {
+      "id": "backyard", "name": "后院",
+      "ambient": "雨停了。后院一株老槐，一口古井。井台的青石被绳子磨出几道深沟。",
+      "hotspots": [
+        { "id": "bucket", "label": "井边的木桶", "text": "一只木桶，桶底的榫有些松，但还能用。", "give": { "item": "bucket" } },
+        { "id": "stone_crack", "label": "井沿石缝", "text": "石缝里压着半张当票。典当物那一栏写着：一双眼。死当。背面一行小字：赎物者，禁房自取。", "give": { "item": "ticket" } },
+        { "id": "locust", "label": "老槐树", "text": "树上系满褪色的红绳，每根绳头都拴着一枚铜铃。铃舌全被人取走了。" },
+        { "id": "clothesline", "label": "晾衣绳", "text": "后院的绳上晾着几盏纸灯笼，浆得挺括，每只灯笼上都写着一个名字。夜风一过，灯笼轻轻磕碰，像一群人在小声打招呼。", "give": { "note": { "id": "n_wash", "t": "后院晾着的纸灯笼，每只写一个名字。晾灯笼，像晾着还没用上的客人。" } } }
+      ],
+      "puzzles": [ { "id": "well_pull" } ],
+      "exits": [
+        { "to": "hall", "label": "回大堂", "requires": {} },
+        { "to": "woodshed", "label": "去柴房", "requires": {} },
+        { "to": "kitchen", "label": "绕去厨房", "requires": {} },
+        { "to": "well_bottom", "label": "缒绳下井", "requires": { "items": ["rope", "bucket"], "solved": ["well_pull"], "flags": ["lit_lantern"] }, "failText": "井深水寒。得先捞干净上面的东西，再备好绳、桶和灯。" }
+      ]
+    },
+    {
+      "id": "kitchen", "name": "厨房",
+      "ambient": "厨房比大堂更暖，暖得反常。四口大灶一字排开，灶膛里却都是冷的。灶王龛前的香灰还是新的——有人天天来上香，却不开火。",
+      "hotspots": [
+        { "id": "stove_couplet", "label": "灶王楹联", "text": "灶王龛两侧的楹联写得清楚：晨烹粥，午擀面，暮温酒，夜留茶。横批：不熄。", "give": { "note": { "id": "n_couplet", "t": "厨房灶王楹联：晨烹粥，午擀面，暮温酒，夜留茶。横批：不熄。" } } },
+        { "id": "steamer", "label": "笼屉", "text": "笼屉里码着一摞白瓷碗，每一只碗底都用红漆写着一个名字。碗是满的，菜却早就干透了——很多年没人来吃。" },
+        { "id": "stove_god", "label": "灶王龛", "text": "灶王的脸被烟熏得只剩轮廓。你低头作揖，龛后的暗处有什么东西轻轻亮了一下。", "give": { "lantern": { "id": "lf_kitchen", "n": "灯花 · 灶后" } } }
+      ],
+      "puzzles": [ { "id": "kitchen_stoves" } ],
+      "exits": [ { "to": "backyard", "label": "回后院", "requires": {} } ]
+    },
+    {
+      "id": "well_bottom", "name": "井底石室",
+      "ambient": "井底没有水。绳子放到三十丈才触底——这里是一间凿出来的石室，四壁刻满了名字，密密麻麻，一直刻到头顶灯照不到的黑暗里。",
+      "hotspots": [
+        { "id": "carve_wall", "label": "刻满名字的石壁", "text": "你举灯数了数，数到一百就数乱了。名字的笔画都很新——像一直有人在往上添。最旧的那些名字旁边，都刻着同一个小小的记号：一盏灯。", "give": { "note": { "id": "n_carve", "t": "井底石壁刻满名字，最旧的旁边刻着一盏灯的记号。有人在这里，把名字刻了一百年。" } } },
+        { "id": "raw_stone", "label": "生石上的刻名", "text": "石壁最下方有一块颜色不同的生石，上面只有一个新刻的名字——你从没在任何名册上见过它。石头没有苔，像昨天才凿开。你把名字拓了下来。", "give": { "item": "name_strip" } },
+        { "id": "well_crack", "label": "石缝", "text": "生石旁边的石缝里卡着一粒灯花。这里没有风，它却轻轻晃，像跟着井上的什么在动。", "give": { "lantern": { "id": "lf_well", "n": "灯花 · 井底" } } }
+      ],
+      "puzzles": [],
+      "exits": [ { "to": "backyard", "label": "攀绳回后院", "requires": {} } ]
+    },
+    {
+      "id": "woodshed", "name": "柴房",
+      "ambient": "柴房里码着劈好的柴，一股松脂气。墙角堆着几只空陶坛，坛口都用黄泥封着。",
+      "hotspots": [
+        { "id": "rope", "label": "柴堆旁的绳子", "text": "一圈浸过桐油的麻绳，结实。", "give": { "item": "rope" } },
+        { "id": "oil", "label": "架上的灯油", "text": "一壶清亮的灯油。你凑近闻了闻，有股说不出的甜腥。", "give": { "item": "oil" } },
+        { "id": "sealed_jars", "label": "封着黄泥的陶坛", "text": "坛身上贴着封条，封条上的字都一样：暂寄。" },
+        { "id": "floor_board", "label": "脚下的地板", "text": "靠墙那几块地板，颜色比别处的深，缝里嵌着经年的油泥。" }
+      ],
+      "puzzles": [ { "id": "floor_door" } ],
+      "exits": [
+        { "to": "backyard", "label": "回后院", "requires": {} },
+        { "to": "cellar", "label": "下地窖", "requires": { "flags": ["cellar_found"] }, "failText": "板下的石阶黑着，你没敢下去。" },
+        { "to": "paper_room", "label": "进纸扎间", "requires": {} }
+      ]
+    },
+    {
+      "id": "paper_room", "name": "纸扎间",
+      "ambient": "纸扎间里挂满半成品：纸马、纸轿、纸宅院，还有十几具等身的纸人，个个低着头。案上摊着相书与颜料，一股浆糊混着朱砂的气味。",
+      "hotspots": [
+        { "id": "xiangshu", "label": "案上的相书", "text": "一本翻烂的手抄相书，翻开的那页写着：开脸之序，一点睛，二描眉，三塑鼻，四点唇。页边有一行小批注：次序错，脸就锁不进去了。", "give": { "note": { "id": "n_xiangshu", "t": "纸扎间相书：开脸之序，一点睛，二描眉，三塑鼻，四点唇。批注：次序错，脸就锁不进去。" } } },
+        { "id": "order_sheet", "label": "墙上的订货单", "text": "墙上钉着最新的订货单，字迹与账本同一只手：「订：面善纸人一具，眉眼照着柜上阿九描。酬纸钱三百文。」落款日期，是三天前。", "give": { "note": { "id": "n_order", "t": "纸扎间订货单：面善纸人一具，眉眼照着柜上阿九描。落款是三天前——灯谱的字迹。" } } },
+        { "id": "hanging_men", "label": "低头的纸人", "text": "十几具纸人齐齐低着头。你从它们面前走过时，忽然分不清是它们低着头，还是每一具都在用没开的脸看你。" }
+      ],
+      "puzzles": [ { "id": "paper_face" } ],
+      "exits": [ { "to": "woodshed", "label": "回柴房", "requires": {} } ]
+    },
+    {
+      "id": "attic", "name": "禁房",
+      "ambient": "禁房里落满灰。一幅画架立在窗前，墙上钉满了速写。这里的一切都朝着门口的方向，像是在等人。",
+      "hotspots": [
+        { "id": "sketches", "label": "墙上的速写", "text": "速写画的是客栈众人：拨灯芯的乌老板，斗笠下只有一圈灯芯似的黑；打瞌睡的阿九，画上的他眼神清亮，与现在判若两人；最后一幅只画了半张脸，空白的。题着一个小字：沈。你还发觉一件怪事——画上每个人，脚下都没有影子。你把最后一页轻轻合上了。", "give": { "note": { "id": "n_sketch", "t": "禁房速写：乌老板没有脸；阿九画中眼神清亮；最后一幅是半张空白的脸，题着「沈」。画上所有人，都没有影子。" } } },
+        { "id": "easel", "label": "画架上的题诗", "text": "画架上没有画，只有一幅装裱好的题诗：\n灯下垂帘雨未收，\n吃紧更声过小楼。\n人间万事消磨尽，\n名姓从来不可留。\n你念到第三遍才发觉——四句的头一个字，连起来是：灯、吃、人、名。", "give": { "flag": "knows_secret", "note": { "id": "n_poem", "t": "白先生题诗（藏头）：灯吃人名。" } } },
+        { "id": "attic_tools", "label": "散落的画具", "text": "砚台里的墨干了又研、研了又干，有很多遍。笔洗里泡着几支笔，笔头都秃了——最后那些日子，他画得又急又多。", "give": { "note": { "id": "n_tools", "t": "禁房画具：墨研了又干很多遍，笔全秃了。白先生最后的日子画得又急又多。" } } },
+        { "id": "box_bottom", "label": "画箱箱底", "requires": { "solved": ["box"] }, "failText": "画箱还锁着。", "text": "箱底的衬纸下压着一粒灯花，比别处的都沉——白先生连这个也画了进去。", "give": { "lantern": { "id": "lf_attic", "n": "灯花 · 箱底" } } }
+      ],
+      "puzzles": [ { "id": "box" } ],
+      "exits": [
+        { "to": "corridor", "label": "回走廊", "requires": {} },
+        { "to": "memory", "label": "举画走进灯影", "requires": { "items": ["painting"], "flags": ["knows_secret"] }, "failText": "画就在你手里，可你还不知道该往里走——先弄明白这盏灯吃什么。", "enterText": "你把记忆之画举向灯影。画里的门开在脚下——你迈了进去。" }
+      ]
+    },
+    {
+      "id": "memory", "name": "灯影记忆之境",
+      "ambient": "画里的世界是一盏灯的内部：四面是暖黄的壁，脚下踩着流动的光。三团残影悬在光里——一个在打更，一个在作画，一个背对着你拨灯芯。他们的记忆散了架，等一只外人的手来拼。",
+      "hotspots": [
+        { "id": "mem_wall", "label": "流动的光壁", "text": "光壁里偶尔闪过画面：有人落名，有人低头，有人把脸贴近灯焰。都不是现在的脸——是很多年前的。" },
+        { "id": "mem_bai", "label": "作画的残影", "text": "作画的残影笔不停挥，画的是这座客栈。他画一笔，现实里就少一笔——他是在把自己的发现，一样一样藏进画里。" }
+      ],
+      "puzzles": [ { "id": "mem_drum" }, { "id": "mem_paint" }, { "id": "mem_keeper" } ],
+      "exits": [ { "to": "attic", "label": "从画里退出去", "requires": {}, "enterText": "你退出画外。禁房的灰尘落回原处，可你袖子里多了不属于这个夜晚的东西。" } ]
+    },
+    {
+      "id": "cellar", "name": "地窖",
+      "ambient": "地窖比你想的深。一排排陶坛靠墙立着，每只坛的封泥上都写着一个名字。最里头，一面石门挡住更深的黑。",
+      "hotspots": [
+        { "id": "jars_wall", "label": "写满名字的坛", "text": "三百多个名字。你认出其中一只坛上的字迹清瘦——是客房字条上那个「白」字的笔锋。" },
+        { "id": "diary", "label": "供在龛上的簿子", "text": "不是账，是日记。最末一页只有一行：吾以吾面饲灯，换此灯百年不熄。落款的名字被虫蛀了，只余一个「乌」字。", "give": { "flag": "knows_diary", "note": { "id": "n_diary", "t": "守灯人日记：吾以吾面饲灯，换此灯百年不熄。——落款余一「乌」字。" } } },
+        { "id": "behind_jars", "label": "坛阵之后", "text": "坛与墙的夹缝里，一粒灯花卡在蛛网上，居然没被粘住。", "give": { "lantern": { "id": "lf_cellar", "n": "灯花 · 坛后" } } }
+      ],
+      "puzzles": [ { "id": "jar_hex" }, { "id": "gate_bagua" } ],
+      "exits": [
+        { "to": "woodshed", "label": "回柴房", "requires": {} },
+        { "to": "shrine", "label": "推开石门", "requires": { "solved": ["gate_bagua"] }, "failText": "石门纹丝不动。" }
+      ]
+    },
+    {
+      "id": "shrine", "name": "祠堂",
+      "ambient": "祠堂开在山腹里。正中悬着一盏磨盘大的琉璃灯，灯焰不摇。四壁牌位层层叠叠，每一方牌位上都没有名字，只有一张脸的轮廓——每一张，都没有五官。",
+      "hotspots": [
+        { "id": "tablets", "label": "没有五官的牌位", "text": "你数到第七十七块，就不数了。最末一块是新的，脸的轮廓只有淡淡一道，像是刚开始被描上去。", "give": { "note": { "id": "n_tablets", "t": "祠堂牌位皆无名字，只有没有五官的脸。最末一块是新的。" } } },
+        { "id": "nameless_tablet", "label": "守灯人的牌位", "text": "牌位皆无字——你原以为是灯吃掉的。细看才明白：不是被抹去，是从来就没写过。守灯人的名字不在牌位上。那在哪儿？", "give": { "note": { "id": "n_shrine_nameless", "t": "守灯人的牌位不是被抹名，是从未写过——他们的名字不在牌位上。" } } },
+        { "id": "lamp_big", "label": "磨盘大的琉璃灯", "text": "灯焰不摇，映得人脸上发白。你凑近时，焰心极轻地顿了一顿，像心跳漏了一拍。" },
+        { "id": "stele_book", "label": "灯谱原册", "text": "灯谱的原册供在案上。翻开，三百六十一个名字，每个名字后面都跟着一行小字：还。——还了三百年，一个都没还成。", "give": { "note": { "id": "n_book", "t": "灯谱原册：三百六十一个名字，每个后面小字「还」。还了三百年，一个都没还成。" } } },
+        { "id": "behind_tablets", "label": "牌位之后", "text": "新牌位的背后粘着一粒灯花，比别处的都亮。", "give": { "lantern": { "id": "lf_shrine", "n": "灯花 · 牌位" } } },
+        { "id": "empty_easel", "label": "角落的空画架", "text": "祠堂角落立着一座空画架。框口的尺寸，你越看越眼熟。" }
+      ],
+      "puzzles": [],
+      "exits": [
+        { "to": "cellar", "label": "回地窖", "requires": {} },
+        { "to": "lamproom", "label": "把记忆之画挂上空画架", "requires": { "items": ["painting"], "flags": ["summons_zishi"] }, "failText": "画架空着，尺寸眼熟。可你总觉得还差两样——一件该挂上去的东西，和一个约定。", "enterText": "画挂上的一瞬，画里数不清的门少了一扇。剩下的那扇正对着你，缓缓开了。" }
+      ]
+    },
+    {
+      "id": "lamproom", "name": "灯房",
+      "ambient": "灯房里只有一张案。案上：初代灯的灯芯，一册灯谱，一方斗笠。乌老板立在案后，斗笠搁下了——他没有脸，只有一束安安静静的火。子时到了。",
+      "hotspots": [],
+      "puzzles": [],
+      "exits": [],
+      "choices": [
+        { "id": "e_dawn", "label": "按规矩来——落名，安歇，等天亮", "requires": {} },
+        { "id": "e_dark", "label": "提起灯芯剪", "requires": { "items": ["scissors"] }, "fail": "你翻遍全身，没有能剪断灯芯的家伙。" },
+        { "id": "e_true", "label": "以画换名", "requires": { "items": ["painting", "nameplate"], "flags": ["knows_secret"] }, "fail": "你还不知道这盏灯究竟吃什么——拿什么换？" },
+        { "id": "e_none", "label": "把生名名条投进灯里", "requires": { "items": ["name_strip"] }, "fail": "你没有任何可以献给灯、又能骗过它的名字。井底也许有。" },
+        { "id": "e_keeper", "label": "摘下那顶斗笠", "requires": { "items": ["painting", "nameplate"], "flags": ["knows_secret"], "min_lanterns": 12 }, "fail": "斗笠就在案上。可你身上还缺几粒灯花——每一粒，都是一段没被吃掉的记忆。" },
+        { "id": "e_perfect", "label": "把三页画稿铺在灯前", "requires": { "items": ["painting", "nameplate", "sketch_a", "sketch_b", "sketch_c"], "flags": ["knows_secret", "ajun_fed", "ajun_memory", "wu_memory"], "notes": ["n_letter_wu"] }, "fail": "画稿不全，记忆未齐，粥还没有送到该送的人手里——他们三人的事，你只拼出了一半。" }
+      ]
+    }
+  ],
+  "usePuzzles": {
+    "light_lamp": {
+      "prompt": "长明灯只剩豆大的火。你怀里有一盏还没点亮的灯笼。",
+      "btn": "把火折子凑向祖传灯笼",
+      "requires": { "items": ["lantern", "tinder"] },
+      "fail": "你还没有可以引火的东西。庙里总该有——供桌底下？",
+      "hints": ["火折子要配一盏没点的灯笼。来路上你收拾过包袱，供桌底下有火。"],
+      "success": "火折子「噗」地窜出火苗。灯笼亮起来的一瞬，你好像听见很远的地方，有什么东西轻轻应了一声。",
+      "onSolve": { "flag": "lit_lantern" }
+    }
+  },
+  "synth": [
+    { "needs": ["n_stele", "n_poem"], "id": "s1", "t": "灯下不问——不是不问来路，是灯不问，只吃名。" },
+    { "needs": ["n_ledger", "n_diary"], "id": "s2", "t": "灯谱上三百六十一个名字，账本里三百六十一份「灯油」。原来账本记的从来不是油。" },
+    { "needs": ["n_letter_wu", "n_diary"], "id": "s3", "t": "乌老板先把自己的脸喂了灯，又把亲儿子的名字落进灯谱。静室那封信，他写了三十年。" },
+    { "needs": ["n_order", "n_arm"], "id": "s4", "t": "订货单要照阿九的眉眼开脸，井底又捞起一只纸手臂——影工旧了坏了，就换纸的。" }
+  ],
+  "endings": {
+    "e_dawn": {
+      "num": "结局一", "name": "天亮启程",
+      "blurb": "按规矩落名安歇。天亮之后，你想不起客栈的样子。",
+      "text": "你把名字端端正正落进灯谱，睡去。\n\n天亮时你醒来，行囊齐整，房钱付讫。走出山口，你回头想再看一眼客栈——想不起来了。想不起它挂在山坳里的样子，想不起掌柜的脸，也想不起自己心口为什么空了一块。\n\n路牌上写着：灯下不问。\n\n你没有问。"
+    },
+    "e_dark": {
+      "num": "结局二", "name": "灯灭",
+      "blurb": "剪断灯芯之前，没有先给灯一个替代的名字。",
+      "text": "剪口合拢的那一瞬，整座山安静下来。\n\n灯焰灭了。四壁的牌位同时转过来，对着你。没有风，可你听见了三百六十一个人的呼吸。\n\n灯要活着，就得有芯。乌老板用了一百年——你是最好的那一截。"
+    },
+    "e_true": {
+      "num": "结局三", "name": "灯长明",
+      "blurb": "以画换名。灯谱焚尽，白先生走出画外，阿九记起自己是阿昭。",
+      "text": "你把记忆之画举进灯焰。火沿着画里的笔触爬上去，画中一扇扇门接连烧穿——白先生从灰烬里直起身来，拍拍衣襟上的火星，像只是打了个盹。\n\n你把乌木名牌按进阿九手心。他张了张嘴，三十年来第一声：「……阿昭。」\n\n灯谱无火自燃。三百六十一个名字腾起来，像一群终于肯散的萤。你举起祖传灯笼，接住最后一粒火种——灯认得回家的路。\n\n天亮时，一行人下山。斗笠落在案上，里头空空的。"
+    },
+    "e_keeper": {
+      "num": "隐藏结局 · 甲", "name": "灯影中人",
+      "blurb": "十二粒灯花齐备。你接过斗笠，做一盏自由的灯。",
+      "text": "你没有走进画里，也没有剪断灯芯。\n\n你摘下那顶斗笠。灯焰轻轻晃了晃——一百年来，它第一次等到一个自愿的人。\n\n守灯人不必把脸喂给灯，只需要记得每一盏灯为什么亮。你把十二粒灯花嵌进灯壁，每嵌一粒，灯影里就多一段没被吃掉的记忆：山道上的雨、灶上的粥、井底的刻痕、戏台上的锣鼓。\n\n从这一夜起，山中多了一盏自由的灯：它照着夜路，不问来路，也不吃名字。"
+    },
+    "e_none": {
+      "num": "结局四", "name": "无名",
+      "blurb": "把生人的名字投进灯里——灯从没吃过一个还没落谱的名字。",
+      "text": "你把拓下来的生名名条投进灯焰。\n\n灯愣住了。它吃了三百年的名字，从没吃过一个还没落进灯谱的名字——生名卡在灯芯里，像鱼骨卡在喉咙。整座山的灯同时暗了一暗，满堂低头的影子在同一瞬间直起腰来。\n\n你拽着离你最近的一只纸手臂往山下跑。身后锣鼓大作，像一场迟了三百年的散戏。\n\n天亮时分你摔出山口，手里还攥着半只纸手。你没敢回头，看你拽出来的是谁。\n\n碑上写着：灯下不问。这一夜，是灯答不上来。"
+    },
+    "e_perfect": {
+      "num": "隐藏结局 · 乙", "name": "完璧",
+      "blurb": "三段记忆各自归位。灯谱焚尽，白先生归来，阿昭开口，灯芯卸任。",
+      "text": "你把记忆之画举进灯焰，把阿昭的名牌按进他手心，再把三页画稿在火光前铺开——白先生年轻时的笔触，阿昭孩童时的眉眼，乌老板没有喂灯之前的样子。\n\n灯焰认出了他们。\n\n灯谱无火自燃。三百六十一个名字腾空而起，像一场倒放的雪。白先生从画里走下来，拍拍衣襟上的火星；阿九张了张嘴，三十年来第一声——\n\n「爹。」\n\n斗笠底下，那束安静的火轻轻晃了晃，熄了。名字还给了名字，脸还给了脸，灯芯卸了三百年的任。\n\n天亮时，你们一行人下山。祖传灯笼留在空了的客栈门口，灯壁里嵌着灯花——从此它只照路，不问来路，也不吃名字。"
+    }
+  }
+}
+</script>
+
+<script>
+(function () {
+  'use strict';
+  var DATA = JSON.parse(document.getElementById('game-data').textContent);
+  var META = DATA.meta, ITEMS = DATA.items, PZ = {};
+  Object.keys(DATA.puzzles).forEach(function (k) { PZ[k] = DATA.puzzles[k]; });
+  Object.keys(DATA.usePuzzles || {}).forEach(function (k) {
+    PZ[k] = Object.assign({ type: 'use' }, DATA.usePuzzles[k]);
+  });
+  var SCENES = {}; DATA.scenes.forEach(function (s) { SCENES[s.id] = s; });
+  var SYNTH = DATA.synth || [], ENDINGS = DATA.endings;
+
+  var SAVE_KEY = 'changye.save.v1', END_KEY = 'changye.endings.v1', CFG_KEY = 'changye.cfg.v1';
+  var app = document.getElementById('app');
+  var TYPE_TIMER = null, overlay = null;
+
+  /* ---------------- 状态 ---------------- */
+  var S = null, view = 'title';
+  var cfg = { snd: true, tspeed: 1 };
+  try { cfg = Object.assign(cfg, JSON.parse(localStorage.getItem(CFG_KEY) || '{}')); } catch (e) {}
+
+  function newGame() {
+    var arrows = [];
+    for (var i = 0; i < 9; i++) arrows.push(Math.floor(Math.random() * 8));
+    arrows[4] = -1; // 灯心
+    var mismatches = arrows.filter(function (d, i) { return d >= 0 && d !== PZ.nine_box.targets[i]; }).length;
+    if (mismatches < 2) arrows[0] = (arrows[0] + 3) % 8;
+    S = {
+      v: 1, scene: 'road', items: [], flags: {}, solved: {}, notes: {}, lanterns: [],
+      arrows: arrows, abacus: [0, 0, 0], seqProg: {}, activeLock: null, visited: { road: true },
+      log: [], hintsUsed: 0, t0: Date.now()
+    };
+    save();
+  }
+  function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
+  function load() {
+    try {
+      var raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return false;
+      var d = JSON.parse(raw);
+      if (!d || d.v !== 1 || !SCENES[d.scene]) return false;
+      S = d; return true;
+    } catch (e) { return false; }
+  }
+  function endingsSeen() {
+    try { return JSON.parse(localStorage.getItem(END_KEY) || '{}'); } catch (e) { return {}; }
+  }
+  function markEnding(id) {
+    var e = endingsSeen(); e[id] = true;
+    try { localStorage.setItem(END_KEY, JSON.stringify(e)); } catch (x) {}
+  }
+
+  /* ---------------- 条件判定 ---------------- */
+  function partOk(r) {
+    if (r.items && !r.items.every(function (i) { return S.items.indexOf(i) >= 0; })) return false;
+    if (r.flags && !r.flags.every(function (f) { return !!S.flags[f]; })) return false;
+    if (r.solved && !r.solved.every(function (p) { return !!S.solved[p]; })) return false;
+    if (r.notes && !r.notes.every(function (n) { return !!S.notes[n]; })) return false;
+    if (r.min_lanterns && S.lanterns.length < r.min_lanterns) return false;
+    return true;
+  }
+  function reqOk(r) {
+    if (!r) return true;
+    if (r.any) return r.any.some(partOk);
+    return partOk(r);
+  }
+
+  /* ---------------- 反馈 / 授予 ---------------- */
+  function log(msg, cls) {
+    S.log.push({ t: msg, c: cls || '' });
+    if (S.log.length > 6) S.log = S.log.slice(-6);
+  }
+  function chapterOf() { return META.chapters[S.scene] || ''; }
+  function addNote(id, t) {
+    if (S.notes[id]) return;
+    S.notes[id] = { t: t, ch: chapterOf() };
+    checkSynth();
+  }
+  function checkSynth() {
+    SYNTH.forEach(function (sn) {
+      if (S.notes[sn.id]) return;
+      if (sn.needs.every(function (n) { return !!S.notes[n]; })) {
+        S.notes[sn.id] = { t: sn.t, ch: chapterOf(), synth: true };
+        log('线索互相印证，你想起了一件事：' + sn.t, 'good');
+      }
+    });
+  }
+  function grant(g) {
+    if (!g) return;
+    if (g.item && S.items.indexOf(g.item) < 0) {
+      S.items.push(g.item);
+      log('获得：' + ITEMS[g.item].n, 'good');
+    }
+    if (g.items) g.items.forEach(function (i) {
+      if (S.items.indexOf(i) < 0) { S.items.push(i); log('获得：' + ITEMS[i].n, 'good'); }
+    });
+    if (g.flag) S.flags[g.flag] = true;
+    if (g.note) addNote(g.note.id, g.note.t);
+    if (g.lantern && S.lanterns.indexOf(g.lantern.id) < 0) {
+      S.lanterns.push(g.lantern.id);
+      log('拾得 ' + g.lantern.n + '（' + S.lanterns.length + '/' + META.lanternTotal + '）', 'good');
+    }
+    checkSynth();
+  }
+
+  /* ---------------- 音效 ---------------- */
+  var AC = null;
+  function tone(freq, dur, type, gain, when) {
+    if (!cfg.snd) return;
+    try {
+      AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+      var t = AC.currentTime + (when || 0);
+      var o = AC.createOscillator(), g = AC.createGain();
+      o.type = type || 'sine'; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(gain || 0.08, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(AC.destination);
+      o.start(t); o.stop(t + dur + 0.05);
+    } catch (e) {}
+  }
+  var SND = {
+    click: function () { tone(640, 0.06, 'triangle', 0.05); },
+    page: function () { tone(420, 0.08, 'triangle', 0.045); tone(560, 0.07, 'triangle', 0.03, 0.05); },
+    unlock: function () { tone(880, 0.1, 'sine', 0.07); tone(1320, 0.14, 'sine', 0.06, 0.09); },
+    error: function () { tone(170, 0.16, 'square', 0.045); },
+    solve: function () { [523, 659, 784].forEach(function (f, i) { tone(f, 0.16, 'sine', 0.06, i * 0.09); }); },
+    flower: function () { [1175, 1568].forEach(function (f, i) { tone(f, 0.12, 'sine', 0.05, i * 0.07); }); },
+    ending: function () { [392, 523, 659, 784].forEach(function (f, i) { tone(f, 0.5, 'sine', 0.05, i * 0.18); }); }
+  };
+
+  /* ---------------- 渲染工具 ---------------- */
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+
+  function typeInto(node, text, done) {
+    clearInterval(TYPE_TIMER);
+    var cfgSpeeds = [0, 16, 34];
+    var sp = cfgSpeeds[cfg.tspeed] != null ? cfgSpeeds[cfg.tspeed] : 16;
+    if (!sp) { node.textContent = text; if (done) done(); return; }
+    var i = 0;
+    node.textContent = '';
+    var caret = el('span', 'caret', '▌');
+    node.appendChild(caret);
+    TYPE_TIMER = setInterval(function () {
+      i++;
+      node.textContent = text.slice(0, i);
+      node.appendChild(caret);
+      if (i >= text.length) {
+        clearInterval(TYPE_TIMER);
+        setTimeout(function () { if (caret.parentNode) caret.parentNode.removeChild(caret); }, 1400);
+        if (done) done();
+      }
+    }, sp);
+    node.onclick = function () {
+      clearInterval(TYPE_TIMER);
+      node.textContent = text;
+      if (done) done();
+    };
+  }
+
+  /* ---------------- 谜题交互 ---------------- */
+  function solvePuzzle(pid, successText, silentLog) {
+    S.solved[pid] = true;
+    grant(PZ[pid].onSolve);
+    if (!silentLog) log(successText || PZ[pid].success || '你解开了它。', 'good');
+    SND.solve();
+    if (S.activeLock === pid) S.activeLock = null;
+    save(); render();
+  }
+  function puzzleHints(pid) {
+    var def = PZ[pid]; if (!def || !def.hints || !def.hints.length) return null;
+    var box = el('div', 'hint-row');
+    var btn = el('button', 'hint-btn', '💡 提示');
+    var shown = el('span', 'hint-text');
+    var lv = 0;
+    btn.onclick = function () {
+      if (lv >= def.hints.length) return;
+      shown.textContent = def.hints[lv];
+      lv++; S.hintsUsed++; save();
+      if (lv >= def.hints.length) {
+        btn.textContent = '💡 没有更多提示了';
+        btn.disabled = true;
+        var give = el('button', 'hint-btn', '直接告诉我答案');
+        give.onclick = function () {
+          S.hintsUsed++;
+          var ans = '';
+          if (def.accept) ans = '答案：' + def.accept[0];
+          else if (def.target != null) ans = '答案：拨出 ' + def.target;
+          else if (def.seq) ans = '次序：' + def.seq.join(' ');
+          else if (def.groups) ans = '次序：' + def.groups.map(function (g) { return g.join(''); }).join(' → ');
+          shown.textContent = ans || '再四处看看，线索就在明处。';
+          give.disabled = true; save();
+        };
+        box.appendChild(give);
+      }
+      SND.page(); save();
+    };
+    box.appendChild(btn); box.appendChild(shown);
+    return box;
+  }
+
+  function buildCodePuzzle(pid) {
+    var def = PZ[pid], box = el('div', 'puzzle');
+    box.dataset.pz = pid;
+    box.appendChild(el('div', 'pz-prompt', def.prompt));
+    var row = el('div', 'pz-row');
+    var input = el('input'); input.type = 'text'; input.placeholder = '……';
+    input.setAttribute('maxlength', '12'); input.dataset.role = 'code-input';
+    var btn = el('button', 'act', '拨动锁环');
+    btn.onclick = tryCode;
+    input.onkeydown = function (e) { if (e.key === 'Enter') tryCode(); };
+    function tryCode() {
+      var v = (input.value || '').replace(/\s/g, '');
+      var hit = def.accept.some(function (a) { return a === v; });
+      if (hit) { SND.unlock(); solvePuzzle(pid, def.success); }
+      else { log(def.wrongFb || '纹丝不动。', 'err'); SND.error(); box.classList.add('shake'); setTimeout(function () { box.classList.remove('shake'); }, 400); save(); renderLog(); }
+    }
+    row.appendChild(input); row.appendChild(btn);
+    box.appendChild(row);
+    var h = puzzleHints(pid); if (h) box.appendChild(h);
+    return box;
+  }
+
+  function buildChoicePuzzle(pid) {
+    var def = PZ[pid], box = el('div', 'puzzle' + (def.intro ? ' intro-dialog' : ''));
+    box.dataset.pz = pid;
+    box.appendChild(el('div', 'pz-prompt', def.prompt));
+    var opts = el('div', 'pz-row');
+    opts.style.flexDirection = 'column';
+    opts.style.alignItems = 'stretch';
+    def.options.forEach(function (op) {
+      var b = el('button', 'opt', op.t);
+      b.onclick = function () {
+        SND.click();
+        if (op.correct || def.intro) {
+          if (op.fb) log(op.fb, op.correct ? 'good' : '');
+          if (op.give) grant(op.give);
+          if (op.flag) { S.flags[op.flag] = true; checkSynth(); }
+          if (op.note) addNote(op.note.id, op.note.t);
+          S.solved[pid] = true;
+          if (S.activeLock === pid) S.activeLock = null;
+          SND.unlock(); save(); render();
+        } else {
+          log(op.fb || '……', 'err');
+          SND.error();
+          b.classList.add('wrong'); b.disabled = true;
+          save(); renderLog();
+        }
+      };
+      opts.appendChild(b);
+    });
+    box.appendChild(opts);
+    var h = puzzleHints(pid); if (h) box.appendChild(h);
+    return box;
+  }
+
+  function buildUsePuzzle(pid) {
+    var def = PZ[pid], box = el('div', 'puzzle');
+    box.dataset.pz = pid;
+    box.appendChild(el('div', 'pz-prompt', def.prompt));
+    var can = reqOk(def.requires);
+    var btn = el('button', 'act', def.btn || '动手');
+    if (!can) btn.classList.add('opt-wrong');
+    btn.onclick = function () {
+      if (!reqOk(def.requires)) { log(def.fail || '还差些东西。', 'err'); SND.error(); save(); renderLog(); return; }
+      SND.unlock(); solvePuzzle(pid, def.success);
+    };
+    box.appendChild(btn);
+    var h = puzzleHints(pid); if (h) box.appendChild(h);
+    return box;
+  }
+
+  function buildAbacusPuzzle(pid) {
+    var def = PZ[pid], box = el('div', 'puzzle');
+    box.dataset.pz = pid;
+    box.appendChild(el('div', 'pz-prompt', def.prompt));
+    var wrap = el('div', 'abacus');
+    var labels = ['百', '十', '个'];
+    var unit = el('div', 'abacus');
+    for (var r = 0; r < 3; r++) {
+      (function (r) {
+        var rod = el('div', 'rod');
+        rod.appendChild(el('div', 'rod-t', labels[r]));
+        var upper = el('div', 'bead' + (S.abacus[r] >= 5 ? ' on' : ''));
+        upper.title = '上珠（五）';
+        upper.onclick = function () {
+          S.abacus[r] = S.abacus[r] >= 5 ? S.abacus[r] - 5 : S.abacus[r] + 5;
+          SND.click(); save(); render();
+        };
+        rod.appendChild(upper);
+        rod.appendChild(el('div', 'bead-mid'));
+        var lowerPart = S.abacus[r] % 5;
+        for (var b = 0; b < 4; b++) {
+          (function (b) {
+            var bead = el('div', 'bead' + (lowerPart > b ? ' on' : ''));
+            bead.onclick = function () {
+              var cur = S.abacus[r] % 5;
+              S.abacus[r] = S.abacus[r] - cur + (cur === b + 1 ? 0 : b + 1);
+              SND.click(); save(); render();
+            };
+            rod.appendChild(bead);
+          })(b);
+        }
+        wrap.appendChild(rod);
+      })(r);
+    }
+    box.appendChild(wrap);
+    var val = S.abacus[0] * 100 + S.abacus[1] * 10 + S.abacus[2];
+    if (val === def.target) { SND.unlock(); solvePuzzle(pid, def.success); return box; }
+    var h = puzzleHints(pid); if (h) box.appendChild(h);
+    return box;
+  }
+
+  function buildRotatePuzzle(pid) {
+    var def = PZ[pid], box = el('div', 'puzzle');
+    box.dataset.pz = pid;
+    box.appendChild(el('div', 'pz-prompt', def.prompt));
+    var grid = el('div', 'grid9');
+    var allOk = true;
+    for (var i = 0; i < 9; i++) {
+      (function (i) {
+        if (def.targets[i] == null) {
+          var core = el('div', 'pin core', '❖');
+          grid.appendChild(core); return;
+        }
+        var cur = S.arrows[i], ok = cur === def.targets[i];
+        if (!ok) allOk = false;
+        var p = el('div', 'pin');
+        var ar = el('span', 'ar', '➤');
+        ar.style.display = 'inline-block';
+        ar.style.transform = 'rotate(' + (cur * 45 - 90) + 'deg)';
+        p.appendChild(ar);
+        p.onclick = function () {
+          S.arrows[i] = (S.arrows[i] + 1) % 8;
+          SND.click(); save(); render();
+        };
+        grid.appendChild(p);
+      })(i);
+    }
+    box.appendChild(grid);
+    if (allOk) { SND.unlock(); solvePuzzle(pid, def.success); return box; }
+    var h = puzzleHints(pid); if (h) box.appendChild(h);
+    return box;
+  }
+
+  function buildOrderPuzzle(pid) {
+    var def = PZ[pid], box = el('div', 'puzzle');
+    box.dataset.pz = pid;
+    box.appendChild(el('div', 'pz-prompt', def.prompt));
+    var groups = def.groups || def.seq.map(function (x) { return [x]; });
+    var prog = S.seqProg[pid] || { g: 0, picked: [] };
+    var row = el('div', 'seq');
+    def.items.forEach(function (it) {
+      var b = el('button', 'opt', it);
+      b.onclick = function () {
+        var g = groups[prog.g];
+        if (!g) return;
+        if (prog.picked.indexOf(it) >= 0) return;
+        if (g.indexOf(it) >= 0) {
+          prog.picked.push(it);
+          SND.click();
+          if (prog.picked.length === g.length) {
+            prog.g++; prog.picked = [];
+            if (prog.g >= groups.length) {
+              S.seqProg[pid] = { g: 0, picked: [] };
+              SND.unlock(); solvePuzzle(pid, def.success); return;
+            }
+          }
+          S.seqProg[pid] = prog; save(); render();
+        } else {
+          log(def.wrongFb || '不对。', 'err');
+          SND.error();
+          S.seqProg[pid] = { g: 0, picked: [] };
+          box.classList.add('shake'); setTimeout(function () { box.classList.remove('shake'); }, 400);
+          save(); render();
+        }
+      };
+      row.appendChild(b);
+    });
+    box.appendChild(row);
+    var progText = '';
+    for (var gi = 0; gi < prog.g; gi++) progText += groups[gi].join('') + ' → ';
+    if (progText) box.appendChild(el('div', 'seq-done', progText.slice(0, -3)));
+    var h = puzzleHints(pid); if (h) box.appendChild(h);
+    return box;
+  }
+
+  function buildPuzzle(pid) {
+    var def = PZ[pid];
+    if (!def) return null;
+    if (def.type === 'code') return buildCodePuzzle(pid);
+    if (def.type === 'choice') return buildChoicePuzzle(pid);
+    if (def.type === 'use') return buildUsePuzzle(pid);
+    if (def.type === 'abacus') return buildAbacusPuzzle(pid);
+    if (def.type === 'rotate') return buildRotatePuzzle(pid);
+    if (def.type === 'order') return buildOrderPuzzle(pid);
+    return null;
+  }
+
+  /* ---------------- 场景交互 ---------------- */
+  function clickHotspot(hs) {
+    SND.page();
+    log(hs.text);
+    grant(hs.give);
+    save(); render();
+  }
+
+  function clickExit(exit) {
+    if (!reqOk(exit.requires)) {
+      SND.error();
+      log(exit.failText || '过不去。', 'err');
+      if (exit.lockPuzzle && !S.solved[exit.lockPuzzle]) S.activeLock = exit.lockPuzzle;
+      save(); render();
+      return;
+    }
+    SND.page();
+    S.scene = exit.to;
+    S.activeLock = null;
+    S.visited[exit.to] = true;
+    S.log = [];
+    if (exit.enterText) log(exit.enterText, 'good');
+    save(); render();
+  }
+
+  function chooseEnding(c) {
+    if (!reqOk(c.requires)) {
+      SND.error();
+      log(c.fail || '时机未到。', 'err');
+      save(); renderLog();
+      return;
+    }
+    SND.ending();
+    markEnding(c.id);
+    S.ending = c.id;
+    view = 'ending';
+    save(); render();
+  }
+
+  /* ---------------- 视图 ---------------- */
+  function renderTitle() {
+    clear(app);
+    var wrap = el('div', 'title-wrap');
+    var lamp = el('div', 'lamp');
+    lamp.appendChild(el('div', 'cap'));
+    lamp.appendChild(el('div', 'body'));
+    lamp.appendChild(el('div', 'base'));
+    wrap.appendChild(lamp);
+    wrap.appendChild(el('h1', 'gtitle', META.title));
+    wrap.appendChild(el('div', 'gsub', META.sub + ' · 锈湖式文字解谜'));
+    var hasSave = !!localStorage.getItem(SAVE_KEY);
+    if (hasSave) {
+      var cont = el('button', 'mbtn', '继 续');
+      cont.onclick = function () { if (load()) { view = 'game'; SND.page(); render(); } };
+      wrap.appendChild(cont);
+      var fresh = el('button', 'mbtn warn', '重新开始这一夜');
+      fresh.onclick = function () {
+        if (confirm('重新开始会覆盖当前进度。确定？')) { newGame(); view = 'game'; render(); }
+      };
+      wrap.appendChild(fresh);
+    } else {
+      var start = el('button', 'mbtn', '入 山');
+      start.onclick = function () { newGame(); view = 'game'; SND.page(); render(); };
+      wrap.appendChild(start);
+    }
+    var gal = el('button', 'mbtn', '结局图鉴');
+    gal.onclick = function () { openModal(buildGallery()); };
+    wrap.appendChild(gal);
+    var set = el('button', 'mbtn', '设置');
+    set.onclick = function () { openModal(buildSettings()); };
+    wrap.appendChild(set);
+    app.appendChild(wrap);
+  }
+
+  function renderLog() {
+    var lg = document.querySelector('.log');
+    if (!lg) return;
+    clear(lg);
+    S.log.forEach(function (m) { lg.appendChild(el('div', m.c, m.t)); });
+    lg.scrollTop = lg.scrollHeight;
+  }
+
+  function renderGame() {
+    clear(app);
+    var sc = SCENES[S.scene];
+
+    /* 顶栏 */
+    var top = el('div', 'top');
+    top.appendChild(el('div', 'brand', META.title));
+    top.appendChild(el('div', 'chip', chapterOf()));
+    top.appendChild(el('div', 'chip lan', '✦ 灯花 ' + S.lanterns.length + '/' + META.lanternTotal));
+    top.appendChild(el('div', 'sp'));
+    function topBtn(label, fn) { var b = el('button', 'tbtn', label); b.onclick = fn; return b; }
+    top.appendChild(topBtn('背包', function () { openModal(buildBag()); }));
+    top.appendChild(topBtn('笔记', function () { openModal(buildNotes()); }));
+    top.appendChild(topBtn('图鉴', function () { openModal(buildGallery()); }));
+    top.appendChild(topBtn(cfg.snd ? '🔊' : '🔇', function () { cfg.snd = !cfg.snd; saveCfg(); render(); }));
+    top.appendChild(topBtn('设置', function () { openModal(buildSettings()); }));
+    app.appendChild(top);
+
+    /* 场景卡 */
+    var card = el('div', 'scene fade-in');
+    var head = el('div', 's-head');
+    head.appendChild(el('div', 's-name', sc.name));
+    head.appendChild(el('div', 's-ch', chapterOf()));
+    card.appendChild(head);
+    var amb = el('div', 'ambient');
+    card.appendChild(amb);
+    typeInto(amb, sc.ambient);
+    var lg = el('div', 'log');
+    card.appendChild(lg);
+
+    /* 入场/进行中的谜题（落名、对质、门锁） */
+    var puzzleDefs = (sc.puzzles || []).filter(function (p) {
+      if (S.solved[p.id]) return false;
+      if (p.showIf && !reqOk(p.showIf)) return false;
+      return true;
+    });
+    if (S.activeLock && !S.solved[S.activeLock]) {
+      var exitHasLock = (sc.exits || []).some(function (e) { return e.lockPuzzle === S.activeLock; });
+      if (exitHasLock && !puzzleDefs.some(function (p) { return p.id === S.activeLock; })) puzzleDefs.push({ id: S.activeLock });
+    }
+    if (puzzleDefs.length) {
+      var psec = el('div', 'sec');
+      psec.appendChild(el('div', 'sec-t', '机 关'));
+      puzzleDefs.forEach(function (p) {
+        var node = buildPuzzle(p.id);
+        if (node) psec.appendChild(node);
+      });
+      card.appendChild(psec);
+    }
+
+    /* 热点 */
+    var hotspots = (sc.hotspots || []).filter(function (h) {
+      if (h.requires && !reqOk(h.requires)) return false;
+      return true;
+    });
+    if (hotspots.length) {
+      var hsec = el('div', 'sec');
+      hsec.appendChild(el('div', 'sec-t', '细 看'));
+      var chips = el('div', 'chips');
+      hotspots.forEach(function (h) {
+        var taken = (h.give && h.give.lantern && S.lanterns.indexOf(h.give.lantern.id) >= 0) ||
+                    (h.give && h.give.item && S.items.indexOf(h.give.item) >= 0);
+        var b = el('button', 'hs' + (taken ? ' taken' : ''), h.label + (taken ? ' ✓' : ''));
+        b.dataset.hs = h.id;
+        b.onclick = function () { clickHotspot(h); };
+        chips.appendChild(b);
+      });
+      hsec.appendChild(chips);
+      card.appendChild(hsec);
+    }
+
+    /* 出口 / 终章抉择 */
+    if (S.scene === 'lamproom' && sc.choices) {
+      var csec = el('div', 'sec');
+      csec.appendChild(el('div', 'sec-t', '子 时 已 到'));
+      var ex = el('div', 'exits');
+      sc.choices.forEach(function (c) {
+        var b = el('button', 'exit' + (reqOk(c.requires) ? '' : ' locked'), c.label);
+        b.dataset.act = 'ending'; b.dataset.id = c.id;
+        b.onclick = function () { chooseEnding(c); };
+        ex.appendChild(b);
+      });
+      csec.appendChild(ex);
+      card.appendChild(csec);
+    } else if ((sc.exits || []).length) {
+      var esec = el('div', 'sec');
+      esec.appendChild(el('div', 'sec-t', '去 往'));
+      var exs = el('div', 'exits');
+      sc.exits.forEach(function (e) {
+        var ok = reqOk(e.requires);
+        var b = el('button', 'exit' + (ok ? '' : ' locked'), e.label);
+        b.dataset.exit = e.to;
+        b.onclick = function () { clickExit(e); };
+        exs.appendChild(b);
+      });
+      esec.appendChild(exs);
+      card.appendChild(esec);
+    }
+
+    app.appendChild(card);
+    renderLog();
+  }
+
+  function renderEnding() {
+    clear(app);
+    var ed = ENDINGS[S.ending];
+    var wrap = el('div', 'ending fade-in');
+    wrap.appendChild(el('div', 'num', ed.num));
+    wrap.appendChild(el('h1', null, ed.name));
+    var txt = el('div', 'etxt');
+    ed.text.split('\n\n').forEach(function (p, i) {
+      if (i) txt.appendChild(el('div'));
+      txt.appendChild(el('span', null, p));
+    });
+    wrap.appendChild(txt);
+    var secs = Math.floor((Date.now() - S.t0) / 1000);
+    var mm = Math.floor(secs / 60), ss = ('0' + (secs % 60)).slice(-2);
+    var stats = '本局用时 ' + mm + ':' + ss + ' · 提示 ' + S.hintsUsed + ' 次 · 灯花 ' + S.lanterns.length + '/' + META.lanternTotal;
+    wrap.appendChild(el('div', 'stat', stats));
+    var seen = endingsSeen();
+    var total = Object.keys(ENDINGS).filter(function (k) { return seen[k]; }).length;
+    if (total < Object.keys(ENDINGS).length) {
+      wrap.appendChild(el('div', 'stat', '图鉴里还有你没走到的地方（' + total + '/' + Object.keys(ENDINGS).length + '）。'));
+    }
+    var again = el('button', 'mbtn', '再入此夜');
+    again.onclick = function () { newGame(); view = 'game'; render(); };
+    wrap.appendChild(again);
+    var home = el('button', 'mbtn', '回到山口');
+    home.onclick = function () { view = 'title'; render(); };
+    wrap.appendChild(home);
+    app.appendChild(wrap);
+  }
+
+  var rendering = false, pendingRender = false;
+  function render() {
+    if (rendering) { pendingRender = true; return; }  // 构建期间解题只改状态，渲染完成后补一帧
+    rendering = true;
+    try {
+      if (view === 'title') return renderTitle();
+      if (view === 'ending') return renderEnding();
+      renderGame();
+    } finally {
+      rendering = false;
+      if (pendingRender) { pendingRender = false; setTimeout(render, 0); }
+    }
+  }
+
+  /* ---------------- 弹层 ---------------- */
+  function openModal(node) {
+    closeModal();
+    overlay = el('div', 'overlay');
+    var panel = el('div', 'panel');
+    var close = el('button', 'close', '✕');
+    close.onclick = closeModal;
+    panel.appendChild(close);
+    panel.appendChild(node);
+    overlay.appendChild(panel);
+    overlay.onclick = function (e) { if (e.target === overlay) closeModal(); };
+    document.body.appendChild(overlay);
+    SND.page();
+  }
+  function closeModal() {
+    if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    overlay = null;
+  }
+
+  function buildBag() {
+    var box = el('div');
+    box.appendChild(el('h2', null, '背包'));
+    if (!S.items.length) box.appendChild(el('div', 'empty', '行囊空空。'));
+    S.items.forEach(function (id) {
+      var row = el('div', 'item-row');
+      row.appendChild(el('div', null, ''));
+      row.innerHTML = '<b>' + ITEMS[id].n + '</b><div class="d">' + ITEMS[id].d + '</div>';
+      box.appendChild(row);
+    });
+    return box;
+  }
+
+  function buildNotes() {
+    var box = el('div');
+    box.appendChild(el('h2', null, '笔记'));
+    var ids = Object.keys(S.notes);
+    if (!ids.length) { box.appendChild(el('div', 'empty', '还没有记下任何东西。')); return box; }
+    var byCh = {};
+    ids.forEach(function (id) {
+      var ch = S.notes[id].ch || '杂记';
+      (byCh[ch] = byCh[ch] || []).push(id);
+    });
+    Object.keys(byCh).forEach(function (ch) {
+      box.appendChild(el('div', 'note-ch', ch));
+      byCh[ch].forEach(function (id) {
+        var n = S.notes[id];
+        var row = el('div', 'note-row' + (n.synth ? ' synth' : ''));
+        row.textContent = (n.synth ? '✦ ' : '') + n.t;
+        box.appendChild(row);
+      });
+    });
+    return box;
+  }
+
+  function buildGallery() {
+    var box = el('div');
+    box.appendChild(el('h2', null, '结局图鉴'));
+    var seen = endingsSeen();
+    Object.keys(ENDINGS).forEach(function (k) {
+      var ed = ENDINGS[k];
+      var card = el('div', 'end-card' + (seen[k] ? ' seen' : ''));
+      card.innerHTML = '<b>' + ed.num + ' · ' + (seen[k] ? ed.name : '？？？') + '</b>' +
+        (seen[k] ? '' : ' <span class="tag">未达成</span>') +
+        '<div class="bl">' + (seen[k] ? ed.blurb : '尚无人走到这里。') + '</div>';
+      box.appendChild(card);
+    });
+    if (S && S.lanterns) {
+      box.appendChild(el('div', 'note-ch', '本局灯花'));
+      box.appendChild(el('div', 'note-row', S.lanterns.length + ' / ' + META.lanternTotal));
+    }
+    return box;
+  }
+
+  function buildSettings() {
+    var box = el('div');
+    box.appendChild(el('h2', null, '设置'));
+    var r1 = el('div', 'set-row');
+    r1.appendChild(el('span', null, '音效'));
+    var b1 = el('button', 'tbtn', cfg.snd ? '开' : '关');
+    b1.onclick = function () { cfg.snd = !cfg.snd; saveCfg(); b1.textContent = cfg.snd ? '开' : '关'; };
+    r1.appendChild(b1); box.appendChild(r1);
+    var r2 = el('div', 'set-row');
+    r2.appendChild(el('span', null, '文字速度'));
+    var b2 = el('button', 'tbtn', ['瞬间', '快', '慢'][cfg.tspeed] || '快');
+    b2.onclick = function () {
+      cfg.tspeed = (cfg.tspeed + 1) % 3;
+      saveCfg(); b2.textContent = ['瞬间', '快', '慢'][cfg.tspeed];
+    };
+    r2.appendChild(b2); box.appendChild(r2);
+    if (S && view === 'game') {
+      var r3 = el('div', 'set-row');
+      r3.appendChild(el('span', null, '重新开始'));
+      var b3 = el('button', 'tbtn warn', '重开新档');
+      b3.style.color = '#d3705e';
+      b3.onclick = function () {
+        if (confirm('回到标题并重开新档？当前进度会被覆盖。')) {
+          closeModal(); view = 'title'; render();
+        }
+      };
+      r3.appendChild(b3); box.appendChild(r3);
+    }
+    var tip = el('div', 'note-ch', '灯花');
+    box.appendChild(tip);
+    box.appendChild(el('div', 'note-row', '十二粒灯花藏在「经不起第二眼」的地方。它们记得没被吃掉的记忆——集齐了，或许能看到别人看不见的结局。'));
+    return box;
+  }
+
+  function saveCfg() { try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); } catch (e) {} }
+
+  /* ---------------- 启动 ---------------- */
+  view = 'title';
+  render();
+})();
+</script>
+</body>
+</html>
